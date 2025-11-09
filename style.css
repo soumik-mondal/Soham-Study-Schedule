@@ -54,10 +54,80 @@ section h2 {
     padding-bottom: 10px;
 }
 
+/* Date Input Section */
+.date-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.date-input {
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Priority Section */
+.priority-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.priority-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #e53e3e;
+}
+
+.priority-item label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.priority-input {
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.priority-input:focus {
+    outline: none;
+    border-color: #e53e3e;
+    box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+}
+
 /* Hours Input Section */
 .hours-input-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 15px;
     margin-bottom: 20px;
 }
@@ -75,6 +145,7 @@ section h2 {
 .hour-input-item label {
     font-weight: 600;
     color: #4a5568;
+    font-size: 0.9rem;
 }
 
 .hour-input {
@@ -106,19 +177,26 @@ section h2 {
     font-weight: 600;
 }
 
-.generate-btn:hover {
+.generate-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-.generate-btn:active {
+.generate-btn:disabled {
+    background: #a0aec0;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.generate-btn:active:not(:disabled) {
     transform: translateY(0);
 }
 
 /* Schedule Grid */
 .schedule-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
 }
 
@@ -145,9 +223,15 @@ section h2 {
 }
 
 .day-name {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #2d3748;
+}
+
+.day-date {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-top: 2px;
 }
 
 .total-hours {
@@ -169,7 +253,7 @@ section h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
+    padding: 12px;
     background: #f8f9fa;
     border-radius: 8px;
     border-left: 4px solid #48bb78;
@@ -181,18 +265,31 @@ section h2 {
     transform: translateX(5px);
 }
 
+.subject-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .subject-name {
     font-weight: 600;
     color: #4a5568;
 }
 
+.subject-priority {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
 .subject-hours {
     background: #48bb78;
     color: white;
-    padding: 4px 10px;
+    padding: 6px 12px;
     border-radius: 15px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
+    min-width: 70px;
+    text-align: center;
 }
 
 /* Summary Section */
@@ -230,6 +327,22 @@ footer {
     opacity: 0.8;
 }
 
+/* Priority Badges */
+.priority-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+.priority-5 { background: #e53e3e; color: white; }
+.priority-4 { background: #dd6b20; color: white; }
+.priority-3 { background: #d69e2e; color: white; }
+.priority-2 { background: #38a169; color: white; }
+.priority-1 { background: #3182ce; color: white; }
+
 /* Responsive Design */
 @media (max-width: 768px) {
     #app {
@@ -240,11 +353,16 @@ footer {
         font-size: 2rem;
     }
     
-    .hours-input-grid {
+    .hours-input-grid,
+    .priority-grid {
         grid-template-columns: 1fr;
     }
     
     .schedule-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .date-inputs {
         grid-template-columns: 1fr;
     }
     
@@ -266,8 +384,12 @@ footer {
     
     .subject-item {
         flex-direction: column;
-        gap: 5px;
+        gap: 8px;
         text-align: center;
+    }
+    
+    .subject-info {
+        align-items: center;
     }
 }
 
@@ -281,4 +403,19 @@ footer {
 .empty-state p {
     font-size: 1.1rem;
     margin-bottom: 15px;
+}
+
+/* Validation Styles */
+input:invalid {
+    border-color: #e53e3e;
+}
+
+input:valid {
+    border-color: #38a169;
+}
+
+/* Loading State */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
 }
