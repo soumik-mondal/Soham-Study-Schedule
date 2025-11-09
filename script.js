@@ -2,9 +2,9 @@
 class StudySchedule {
     constructor() {
         this.subjects = [
-            'Mathematics', 'Science', 'English', 
-            'Social Studies', 'Hindi', 'Computer',
-            'Bengali', 'Physics', 'Chemistry', 'Biology'
+            'Math', 'Physics', 'Chemistry', 'Biology', 
+            'AI & Robotics', 'History', 'Geography', 
+            'English Lit', 'English Lang', 'Bengali'
         ];
         
         this.schedule = this.loadSchedule();
@@ -42,18 +42,18 @@ class StudySchedule {
             return JSON.parse(saved);
         }
         
-        // Default priorities
+        // Default priorities for the new subjects
         return {
-            'Mathematics': 5,
-            'Science': 5,
-            'English': 4,
-            'Physics': 4,
-            'Chemistry': 4,
-            'Biology': 4,
-            'Computer': 3,
-            'Social Studies': 3,
-            'Hindi': 2,
-            'Bengali': 1
+            'Math': 5,
+            'Physics': 5,
+            'Chemistry': 5,
+            'Biology': 5,
+            'AI & Robotics': 4,
+            'English Lang': 4,
+            'English Lit': 3,
+            'History': 3,
+            'Geography': 3,
+            'Bengali': 2
         };
     }
 
