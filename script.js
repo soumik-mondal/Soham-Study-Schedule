@@ -1,18 +1,28 @@
 // Enhanced Study Schedule App with Date Range and Priority
 class StudySchedule {
     constructor() {
+        // Define subjects first
         this.subjects = [
             'Math', 'Physics', 'Chemistry', 'Biology', 
             'AI & Robotics', 'History', 'Geography', 
             'English Lit', 'English Lang', 'Bengali'
         ];
         
-        this.schedule = this.loadSchedule();
-        this.subjectPriorities = this.loadPriorities();
+        // Initialize other properties
+        this.schedule = [];
+        this.subjectPriorities = {};
+        
         this.init();
     }
 
     init() {
+        console.log('Initializing Study Schedule App...');
+        console.log('Subjects:', this.subjects);
+        
+        // Load data after subjects are defined
+        this.schedule = this.loadSchedule();
+        this.subjectPriorities = this.loadPriorities();
+        
         this.setDefaultDates();
         this.renderPriorityInputs();
         this.attachEventListeners();
@@ -22,33 +32,55 @@ class StudySchedule {
     }
 
     setDefaultDates() {
-        const today = new Date();
-        const startDate = new Date(today);
-        const endDate = new Date(today);
-        endDate.setDate(today.getDate() + 6); // Default 1 week
-        
-        document.getElementById('startDate').valueAsDate = startDate;
-        document.getElementById('endDate').valueAsDate = endDate;
+        try {
+            const today = new Date();
+            const startDate = new Date(today);
+            const endDate = new Date(today);
+            endDate.setDate(today.getDate() + 6); // Default 1 week
+            
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            if (startDateInput && endDateInput) {
+                startDateInput.valueAsDate = startDate;
+                endDateInput.valueAsDate = endDate;
+            }
+        } catch (error) {
+            console.error('Error setting default dates:', error);
+        }
     }
 
     loadSchedule() {
-        const saved = localStorage.getItem('sohamStudySchedule');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('sohamStudySchedule');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error('Error loading schedule:', error);
+            return [];
+        }
     }
 
     loadPriorities() {
-        const saved = localStorage.getItem('sohamSubjectPriorities');
-        if (saved) {
-            const loadedPriorities = JSON.parse(saved);
-            // Filter out old subjects and add any missing new subjects
-            const cleanedPriorities = {};
-            this.subjects.forEach(subject => {
-                cleanedPriorities[subject] = loadedPriorities[subject] || this.getDefaultPriority(subject);
-            });
-            return cleanedPriorities;
+        try {
+            const saved = localStorage.getItem('sohamSubjectPriorities');
+            if (saved) {
+                const loadedPriorities = JSON.parse(saved);
+                // Create fresh priorities object with current subjects
+                const cleanedPriorities = {};
+                this.subjects.forEach(subject => {
+                    cleanedPriorities[subject] = loadedPriorities[subject] || this.getDefaultPriority(subject);
+                });
+                return cleanedPriorities;
+            }
+        } catch (error) {
+            console.error('Error loading priorities:', error);
         }
         
-        // Default priorities for the new subjects
+        // Return default priorities if no saved data or error
+        return this.getDefaultPriorities();
+    }
+
+    getDefaultPriorities() {
         return {
             'Math': 5,
             'Physics': 5,
@@ -64,71 +96,84 @@ class StudySchedule {
     }
 
     getDefaultPriority(subject) {
-        const defaultPriorities = {
-            'Math': 5,
-            'Physics': 5,
-            'Chemistry': 5,
-            'Biology': 5,
-            'AI & Robotics': 4,
-            'English Lang': 4,
-            'English Lit': 3,
-            'History': 3,
-            'Geography': 3,
-            'Bengali': 2
-        };
+        const defaultPriorities = this.getDefaultPriorities();
         return defaultPriorities[subject] || 3;
     }
 
     saveSchedule() {
-        localStorage.setItem('sohamStudySchedule', JSON.stringify(this.schedule));
+        try {
+            localStorage.setItem('sohamStudySchedule', JSON.stringify(this.schedule));
+        } catch (error) {
+            console.error('Error saving schedule:', error);
+        }
     }
 
     savePriorities() {
-        localStorage.setItem('sohamSubjectPriorities', JSON.stringify(this.subjectPriorities));
+        try {
+            localStorage.setItem('sohamSubjectPriorities', JSON.stringify(this.subjectPriorities));
+        } catch (error) {
+            console.error('Error saving priorities:', error);
+        }
     }
 
     renderPriorityInputs() {
         const container = document.getElementById('priorityContainer');
+        if (!container) {
+            console.error('Priority container not found!');
+            return;
+        }
+
+        console.log('Rendering priority inputs for subjects:', this.subjects);
         
-        // Clear any old data first
+        // Clear container
         container.innerHTML = '';
         
-        // Only render the current subjects
-        container.innerHTML = this.subjects.map(subject => {
+        // Render each subject
+        this.subjects.forEach(subject => {
             const priority = this.subjectPriorities[subject] || this.getDefaultPriority(subject);
-            return `
-                <div class="priority-item">
-                    <label for="priority-${subject.replace(/\s+/g, '-')}">
-                        ${subject} 
-                        <span class="priority-badge priority-${priority}">P${priority}</span>
-                    </label>
-                    <select id="priority-${subject.replace(/\s+/g, '-')}" class="priority-input" data-subject="${subject}">
-                        ${[1, 2, 3, 4, 5].map(p => 
-                            `<option value="${p}" ${p === priority ? 'selected' : ''}>Priority ${p}</option>`
-                        ).join('')}
-                    </select>
-                </div>
+            const subjectId = subject.replace(/[&\s]+/g, '-');
+            
+            const priorityItem = document.createElement('div');
+            priorityItem.className = 'priority-item';
+            priorityItem.innerHTML = `
+                <label for="priority-${subjectId}">
+                    ${subject} 
+                    <span class="priority-badge priority-${priority}">P${priority}</span>
+                </label>
+                <select id="priority-${subjectId}" class="priority-input" data-subject="${subject}">
+                    <option value="1" ${priority === 1 ? 'selected' : ''}>Priority 1</option>
+                    <option value="2" ${priority === 2 ? 'selected' : ''}>Priority 2</option>
+                    <option value="3" ${priority === 3 ? 'selected' : ''}>Priority 3</option>
+                    <option value="4" ${priority === 4 ? 'selected' : ''}>Priority 4</option>
+                    <option value="5" ${priority === 5 ? 'selected' : ''}>Priority 5</option>
+                </select>
             `;
-        }).join('');
+            
+            container.appendChild(priorityItem);
+        });
         
-        // Re-attach event listeners after rendering
+        // Re-attach event listeners
         this.attachPriorityEventListeners();
+        console.log('Priority inputs rendered successfully');
     }
 
     renderHoursInputs(days) {
         const container = document.getElementById('hoursInputContainer');
+        if (!container) return;
         
         if (!days || days.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>Set date range first to generate days</p></div>';
-            document.getElementById('generateScheduleBtn').disabled = true;
+            const generateBtn = document.getElementById('generateScheduleBtn');
+            if (generateBtn) generateBtn.disabled = true;
             return;
         }
 
-        container.innerHTML = days.map(day => {
+        let html = '';
+        days.forEach(day => {
             const existingDay = this.schedule.find(d => d.date === day.date);
             const totalHours = existingDay ? existingDay.totalHours : 0;
             
-            return `
+            html += `
                 <div class="hour-input-item">
                     <label for="hours-${day.date}">
                         ${day.name} (${day.displayDate})
@@ -146,14 +191,19 @@ class StudySchedule {
                     >
                 </div>
             `;
-        }).join('');
+        });
+
+        container.innerHTML = html;
 
         // Enable generate button
-        document.getElementById('generateScheduleBtn').disabled = false;
+        const generateBtn = document.getElementById('generateScheduleBtn');
+        if (generateBtn) generateBtn.disabled = false;
     }
 
     renderSchedule() {
         const container = document.getElementById('scheduleContainer');
+        if (!container) return;
+        
         const hasSchedule = this.schedule && this.schedule.some(day => day.subjects && day.subjects.length > 0);
 
         if (!hasSchedule) {
@@ -165,17 +215,23 @@ class StudySchedule {
             return;
         }
 
-        container.innerHTML = this.schedule.map(day => `
-            <div class="day-card">
-                <div class="day-header">
-                    <div>
-                        <div class="day-name">${day.name}</div>
-                        <div class="day-date">${day.displayDate}</div>
+        let html = '';
+        this.schedule.forEach(day => {
+            html += `
+                <div class="day-card">
+                    <div class="day-header">
+                        <div>
+                            <div class="day-name">${day.name}</div>
+                            <div class="day-date">${day.displayDate}</div>
+                        </div>
+                        <span class="total-hours">${day.totalHours} hrs</span>
                     </div>
-                    <span class="total-hours">${day.totalHours} hrs</span>
-                </div>
-                <div class="subjects-list">
-                    ${day.subjects.map(subject => `
+                    <div class="subjects-list">
+            `;
+            
+            if (day.subjects && day.subjects.length > 0) {
+                day.subjects.forEach(subject => {
+                    html += `
                         <div class="subject-item">
                             <div class="subject-info">
                                 <span class="subject-name">${subject.name}</span>
@@ -186,14 +242,25 @@ class StudySchedule {
                             </div>
                             <span class="subject-hours">${subject.hours} hr${subject.hours !== 1 ? 's' : ''}</span>
                         </div>
-                    `).join('')}
+                    `;
+                });
+            } else {
+                html += `<div class="empty-state"><p>No subjects scheduled</p></div>`;
+            }
+            
+            html += `
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        });
+
+        container.innerHTML = html;
     }
 
     renderSummary() {
         const container = document.getElementById('summaryContainer');
+        if (!container) return;
+        
         if (!this.schedule || this.schedule.length === 0) {
             container.innerHTML = `
                 <div class="summary-card">
@@ -239,7 +306,6 @@ class StudySchedule {
         const generateDaysBtn = document.getElementById('generateDaysBtn');
         if (generateDaysBtn) {
             generateDaysBtn.addEventListener('click', () => {
-                console.log('Generate Days button clicked');
                 this.generateDaysFromRange();
             });
         }
@@ -248,7 +314,6 @@ class StudySchedule {
         const generateScheduleBtn = document.getElementById('generateScheduleBtn');
         if (generateScheduleBtn) {
             generateScheduleBtn.addEventListener('click', () => {
-                console.log('Generate Schedule button clicked');
                 this.updateHoursFromInputs();
                 this.generateSchedule();
                 this.renderSchedule();
@@ -273,19 +338,21 @@ class StudySchedule {
             });
         }
 
-        // Attach priority listeners
-        this.attachPriorityEventListeners();
+        console.log('Event listeners attached successfully');
     }
 
     attachPriorityEventListeners() {
-        // Priority changes
-        document.querySelectorAll('.priority-input').forEach(input => {
+        const priorityInputs = document.querySelectorAll('.priority-input');
+        console.log('Found priority inputs:', priorityInputs.length);
+        
+        priorityInputs.forEach(input => {
             input.addEventListener('change', (e) => {
                 const subject = e.target.dataset.subject;
                 const priority = parseInt(e.target.value);
                 this.subjectPriorities[subject] = priority;
                 this.savePriorities();
-                // Update the badge without re-rendering everything
+                
+                // Update the badge
                 const label = e.target.previousElementSibling;
                 if (label) {
                     const badge = label.querySelector('.priority-badge');
@@ -304,13 +371,13 @@ class StudySchedule {
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
         
-        if (!startDateInput || !endDateInput) return;
+        if (!startDateInput || !endDateInput) {
+            console.error('Date inputs not found');
+            return;
+        }
         
         const startDate = new Date(startDateInput.value);
         const endDate = new Date(endDateInput.value);
-
-        console.log('Start date:', startDate);
-        console.log('End date:', endDate);
 
         if (!startDateInput.value || !endDateInput.value || startDate > endDate) {
             alert('Please select a valid date range');
@@ -347,10 +414,7 @@ class StudySchedule {
     }
 
     updateHoursFromInputs() {
-        console.log('Updating hours from inputs...');
-        
         const hourInputs = document.querySelectorAll('.hour-input');
-        console.log('Found hour inputs:', hourInputs.length);
         
         this.schedule = this.schedule.map(day => {
             const input = document.getElementById(`hours-${day.date}`);
@@ -361,13 +425,9 @@ class StudySchedule {
                 totalHours
             };
         });
-        
-        console.log('Updated schedule:', this.schedule);
     }
 
     generateSchedule() {
-        console.log('Generating schedule...');
-        
         this.schedule = this.schedule.map(day => {
             if (day.totalHours <= 0) {
                 return { ...day, subjects: [] };
@@ -376,14 +436,10 @@ class StudySchedule {
             const distributedSubjects = this.distributeSubjects(day.totalHours);
             return { ...day, subjects: distributedSubjects };
         });
-        
-        console.log('Generated schedule:', this.schedule);
     }
 
     distributeSubjects(totalHours) {
-        console.log(`Distributing ${totalHours} hours among subjects`);
-        
-        // Create subject list with priorities - ONLY current subjects
+        // Create subject list with priorities
         const subjectList = this.subjects.map(subject => ({
             name: subject,
             priority: this.subjectPriorities[subject] || this.getDefaultPriority(subject),
@@ -394,23 +450,19 @@ class StudySchedule {
         subjectList.sort((a, b) => b.priority - a.priority);
 
         let remainingHours = totalHours;
-        console.log('Initial remaining hours:', remainingHours);
 
         // Phase 1: Assign minimum 1.5 hours to high priority subjects first
         const highPrioritySubjects = subjectList.filter(s => s.priority >= 4);
-        console.log('High priority subjects:', highPrioritySubjects);
         
         for (const subject of highPrioritySubjects) {
             if (remainingHours >= 1.5) {
                 subject.hours = 1.5;
                 remainingHours -= 1.5;
-                console.log(`Assigned 1.5 hours to ${subject.name}, remaining: ${remainingHours}`);
             }
         }
 
         // Phase 2: Distribute remaining hours based on priority
         const totalPriority = subjectList.reduce((sum, s) => sum + s.priority, 0);
-        console.log('Total priority score:', totalPriority);
         
         subjectList.forEach(subject => {
             if (remainingHours <= 0) return;
@@ -423,20 +475,17 @@ class StudySchedule {
                 allocatedHours = 1.5;
             }
 
-            // Only allocate if we have meaningful hours
             if (allocatedHours >= 1.5) {
                 allocatedHours = this.roundToHalf(allocatedHours);
                 allocatedHours = Math.min(allocatedHours, remainingHours);
                 
                 subject.hours += allocatedHours;
                 remainingHours -= allocatedHours;
-                console.log(`Assigned ${allocatedHours} hours to ${subject.name}, remaining: ${remainingHours}`);
             }
         });
 
-        // Phase 3: Distribute any small remaining hours to existing subjects
+        // Phase 3: Distribute any small remaining hours
         if (remainingHours > 0) {
-            console.log(`Distributing remaining ${remainingHours} hours`);
             const subjectsWithHours = subjectList.filter(s => s.hours > 0);
             if (subjectsWithHours.length > 0) {
                 const extraPerSubject = this.roundToHalf(remainingHours / subjectsWithHours.length);
@@ -444,7 +493,6 @@ class StudySchedule {
                     if (remainingHours >= 0.5) {
                         subject.hours += extraPerSubject;
                         remainingHours -= extraPerSubject;
-                        console.log(`Added ${extraPerSubject} hours to ${subject.name}, remaining: ${remainingHours}`);
                     }
                 });
             }
@@ -452,19 +500,16 @@ class StudySchedule {
 
         // Final adjustment to ensure total matches
         let finalTotal = subjectList.reduce((sum, s) => sum + s.hours, 0);
-        console.log(`Final total: ${finalTotal}, Target: ${totalHours}`);
-        
         if (Math.abs(finalTotal - totalHours) > 0.1) {
             const diff = totalHours - finalTotal;
             const subjectToAdjust = subjectList.find(s => s.hours > 0);
             if (subjectToAdjust) {
                 subjectToAdjust.hours = this.roundToHalf(subjectToAdjust.hours + diff);
-                console.log(`Adjusted ${subjectToAdjust.name} by ${diff} hours`);
             }
         }
 
         // Filter out subjects with 0 hours and ensure minimum 1.5 hours
-        const finalSubjects = subjectList
+        return subjectList
             .filter(subject => subject.hours >= 1.5)
             .map(subject => ({
                 name: subject.name,
@@ -472,9 +517,6 @@ class StudySchedule {
                 hours: this.roundToHalf(subject.hours)
             }))
             .sort((a, b) => b.priority - a.priority || b.hours - a.hours);
-
-        console.log('Final distributed subjects:', finalSubjects);
-        return finalSubjects;
     }
 
     roundToHalf(num) {
@@ -488,6 +530,11 @@ class StudySchedule {
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing app...');
-    new StudySchedule();
+    console.log('DOM loaded, initializing Study Schedule App...');
+    try {
+        new StudySchedule();
+        console.log('Study Schedule App initialized successfully');
+    } catch (error) {
+        console.error('Error initializing Study Schedule App:', error);
+    }
 });
