@@ -1,33 +1,46 @@
-const CACHE_NAME = 'study-schedule-v1';
+const CACHE_NAME = 'soham-study-schedule-v2';
 const urlsToCache = [
-  './', // Caches the root URL (index.html or study_scheduler.html)
-  './index.html', // Or './study_scheduler.html' if you didn't rename it
-  'https://cdn.tailwindcss.com', // Cache Tailwind CSS
-  './manifest.json',
-  './icon-192x192.png',
-  './icon-512x512.png'
-  // Add any other assets your app uses (e.g., other CSS, JS files)
+    '/',
+    '/index.html',
+    '/style.css',
+    '/script.js',
+    '/manifest.json',
+    '/icon-192x192.png',
+    '/icon-512x512.png'
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                return cache.addAll(urlsToCache);
+            })
+    );
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
-  );
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            }
+        )
+    );
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
 });
