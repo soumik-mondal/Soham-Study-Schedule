@@ -193,6 +193,30 @@ section h2 {
     transform: translateY(0);
 }
 
+/* Print Button */
+.print-controls {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.print-btn {
+    background: linear-gradient(135deg, #2c5282, #2b6cb0);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.print-btn:hover {
+    background: linear-gradient(135deg, #2b6cb0, #3182ce);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
 /* Schedule Grid */
 .schedule-grid {
     display: grid;
@@ -405,17 +429,134 @@ footer {
     margin-bottom: 15px;
 }
 
-/* Validation Styles */
-input:invalid {
-    border-color: #e53e3e;
-}
-
-input:valid {
-    border-color: #38a169;
-}
-
-/* Loading State */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
+/* Print Styles */
+@media print {
+    /* Hide unnecessary elements */
+    header, 
+    .date-section,
+    .priority-section,
+    .hours-section,
+    .summary-section,
+    footer,
+    .print-controls {
+        display: none !important;
+    }
+    
+    /* Reset body for printing */
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    #app {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    
+    /* Schedule section for printing */
+    .schedule-section {
+        display: block !important;
+        background: white !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+    }
+    
+    .schedule-section h2 {
+        text-align: center;
+        font-size: 16pt;
+        margin-bottom: 20pt;
+        color: black !important;
+        border-bottom: 2pt solid black !important;
+    }
+    
+    /* Schedule grid for printing */
+    .schedule-grid {
+        display: block !important;
+        page-break-inside: avoid;
+    }
+    
+    .day-card {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-bottom: 15pt;
+        padding: 10pt;
+        border: 1pt solid #ccc !important;
+        box-shadow: none !important;
+        background: white !important;
+    }
+    
+    .day-header {
+        background: #f8f8f8 !important;
+        padding: 8pt;
+        margin: -10pt -10pt 10pt -10pt;
+        border-bottom: 1pt solid #ccc;
+    }
+    
+    .day-name {
+        font-size: 14pt;
+        font-weight: bold;
+        color: black !important;
+    }
+    
+    .day-date {
+        font-size: 10pt;
+        color: #666 !important;
+    }
+    
+    .total-hours {
+        background: #333 !important;
+        color: white !important;
+        padding: 3pt 8pt;
+        border-radius: 10pt;
+        font-size: 10pt;
+    }
+    
+    .subjects-list {
+        display: block;
+    }
+    
+    .subject-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6pt 8pt;
+        margin: 4pt 0;
+        border-left: 3pt solid #333 !important;
+        background: #f8f8f8 !important;
+        page-break-inside: avoid;
+    }
+    
+    .subject-name {
+        font-weight: bold;
+        color: black !important;
+        font-size: 11pt;
+    }
+    
+    .subject-priority {
+        font-size: 9pt;
+        color: #666 !important;
+    }
+    
+    .priority-badge {
+        background: #666 !important;
+        color: white !important;
+        padding: 1pt 4pt;
+        border-radius: 8pt;
+        font-size: 8pt;
+    }
+    
+    .subject-hours {
+        background: #333 !important;
+        color: white !important;
+        padding: 3pt 8pt;
+        border-radius: 8pt;
+        font-size: 10pt;
+        font-weight: bold;
+    }
 }
