@@ -17,28 +17,67 @@
         </header>
 
         <main>
+            <!-- Date Range Section -->
+            <section class="date-section">
+                <h2>📅 Set Study Period</h2>
+                <div class="date-inputs">
+                    <div class="input-group">
+                        <label for="startDate">Start Date:</label>
+                        <input type="date" id="startDate" class="date-input">
+                    </div>
+                    <div class="input-group">
+                        <label for="endDate">End Date:</label>
+                        <input type="date" id="endDate" class="date-input">
+                    </div>
+                    <button id="generateDaysBtn" class="generate-btn">Generate Days</button>
+                </div>
+            </section>
+
+            <!-- Subject Priority Section -->
+            <section class="priority-section">
+                <h2>🎯 Set Subject Priorities (1-5, 5=Highest)</h2>
+                <div class="priority-grid" id="priorityContainer">
+                    <!-- Priority inputs will be generated here -->
+                </div>
+            </section>
+
             <!-- Hours Input Section -->
             <section class="hours-section">
-                <h2>🎯 Set Daily Study Hours</h2>
+                <h2>⏰ Set Daily Study Hours</h2>
                 <div class="hours-input-grid" id="hoursInputContainer">
-                    <!-- Hours inputs will be generated here -->
+                    <div class="empty-state">
+                        <p>Set date range first to generate days</p>
+                    </div>
                 </div>
-                <button id="generateBtn" class="generate-btn">Generate Schedule</button>
+                <button id="generateScheduleBtn" class="generate-btn" disabled>Generate Schedule</button>
             </section>
 
             <!-- Schedule Display -->
             <section class="schedule-section">
-                <h2>📅 Weekly Study Schedule</h2>
+                <h2>📋 Study Schedule</h2>
                 <div class="schedule-grid" id="scheduleContainer">
-                    <!-- Schedule will be generated here -->
+                    <div class="empty-state">
+                        <p>Generate schedule to see your study plan</p>
+                    </div>
                 </div>
             </section>
 
             <!-- Summary Section -->
             <section class="summary-section">
-                <h2>📊 Weekly Summary</h2>
+                <h2>📊 Study Summary</h2>
                 <div class="summary-cards" id="summaryContainer">
-                    <!-- Summary will be generated here -->
+                    <div class="summary-card">
+                        <div class="summary-value">0</div>
+                        <div class="summary-label">Total Study Hours</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">0</div>
+                        <div class="summary-label">Study Days</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">0</div>
+                        <div class="summary-label">Subjects</div>
+                    </div>
                 </div>
             </section>
         </main>
