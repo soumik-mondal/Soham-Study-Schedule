@@ -39,7 +39,13 @@ class StudySchedule {
     loadPriorities() {
         const saved = localStorage.getItem('sohamSubjectPriorities');
         if (saved) {
-            return JSON.parse(saved);
+            const loadedPriorities = JSON.parse(saved);
+            // Filter out old subjects and add any missing new subjects
+            const cleanedPriorities = {};
+            this.subjects.forEach(subject => {
+                cleanedPriorities[subject] = loadedPriorities[subject] || this.getDefaultPriority(subject);
+            });
+            return cleanedPriorities;
         }
         
         // Default priorities for the new subjects
@@ -57,6 +63,22 @@ class StudySchedule {
         };
     }
 
+    getDefaultPriority(subject) {
+        const defaultPriorities = {
+            'Math': 5,
+            'Physics': 5,
+            'Chemistry': 5,
+            'Biology': 5,
+            'AI & Robotics': 4,
+            'English Lang': 4,
+            'English Lit': 3,
+            'History': 3,
+            'Geography': 3,
+            'Bengali': 2
+        };
+        return defaultPriorities[subject] || 3;
+    }
+
     saveSchedule() {
         localStorage.setItem('sohamStudySchedule', JSON.stringify(this.schedule));
     }
@@ -68,15 +90,19 @@ class StudySchedule {
     renderPriorityInputs() {
         const container = document.getElementById('priorityContainer');
         
+        // Clear any old data first
+        container.innerHTML = '';
+        
+        // Only render the current subjects
         container.innerHTML = this.subjects.map(subject => {
-            const priority = this.subjectPriorities[subject] || 3;
+            const priority = this.subjectPriorities[subject] || this.getDefaultPriority(subject);
             return `
                 <div class="priority-item">
-                    <label for="priority-${subject}">
+                    <label for="priority-${subject.replace(/\s+/g, '-')}">
                         ${subject} 
                         <span class="priority-badge priority-${priority}">P${priority}</span>
                     </label>
-                    <select id="priority-${subject}" class="priority-input" data-subject="${subject}">
+                    <select id="priority-${subject.replace(/\s+/g, '-')}" class="priority-input" data-subject="${subject}">
                         ${[1, 2, 3, 4, 5].map(p => 
                             `<option value="${p}" ${p === priority ? 'selected' : ''}>Priority ${p}</option>`
                         ).join('')}
@@ -210,29 +236,42 @@ class StudySchedule {
         console.log('Attaching event listeners...');
         
         // Generate days based on date range
-        document.getElementById('generateDaysBtn').addEventListener('click', () => {
-            console.log('Generate Days button clicked');
-            this.generateDaysFromRange();
-        });
+        const generateDaysBtn = document.getElementById('generateDaysBtn');
+        if (generateDaysBtn) {
+            generateDaysBtn.addEventListener('click', () => {
+                console.log('Generate Days button clicked');
+                this.generateDaysFromRange();
+            });
+        }
 
         // Generate schedule
-        document.getElementById('generateScheduleBtn').addEventListener('click', () => {
-            console.log('Generate Schedule button clicked');
-            this.updateHoursFromInputs();
-            this.generateSchedule();
-            this.renderSchedule();
-            this.renderSummary();
-            this.saveSchedule();
-        });
+        const generateScheduleBtn = document.getElementById('generateScheduleBtn');
+        if (generateScheduleBtn) {
+            generateScheduleBtn.addEventListener('click', () => {
+                console.log('Generate Schedule button clicked');
+                this.updateHoursFromInputs();
+                this.generateSchedule();
+                this.renderSchedule();
+                this.renderSummary();
+                this.saveSchedule();
+            });
+        }
 
         // Auto-generate days when dates change
-        document.getElementById('startDate').addEventListener('change', () => {
-            this.generateDaysFromRange();
-        });
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
         
-        document.getElementById('endDate').addEventListener('change', () => {
-            this.generateDaysFromRange();
-        });
+        if (startDateInput) {
+            startDateInput.addEventListener('change', () => {
+                this.generateDaysFromRange();
+            });
+        }
+        
+        if (endDateInput) {
+            endDateInput.addEventListener('change', () => {
+                this.generateDaysFromRange();
+            });
+        }
 
         // Attach priority listeners
         this.attachPriorityEventListeners();
@@ -247,10 +286,13 @@ class StudySchedule {
                 this.subjectPriorities[subject] = priority;
                 this.savePriorities();
                 // Update the badge without re-rendering everything
-                const badge = e.target.previousElementSibling.querySelector('.priority-badge');
-                if (badge) {
-                    badge.className = `priority-badge priority-${priority}`;
-                    badge.textContent = `P${priority}`;
+                const label = e.target.previousElementSibling;
+                if (label) {
+                    const badge = label.querySelector('.priority-badge');
+                    if (badge) {
+                        badge.className = `priority-badge priority-${priority}`;
+                        badge.textContent = `P${priority}`;
+                    }
                 }
             });
         });
@@ -261,6 +303,8 @@ class StudySchedule {
         
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
+        
+        if (!startDateInput || !endDateInput) return;
         
         const startDate = new Date(startDateInput.value);
         const endDate = new Date(endDateInput.value);
@@ -339,10 +383,10 @@ class StudySchedule {
     distributeSubjects(totalHours) {
         console.log(`Distributing ${totalHours} hours among subjects`);
         
-        // Create subject list with priorities
+        // Create subject list with priorities - ONLY current subjects
         const subjectList = this.subjects.map(subject => ({
             name: subject,
-            priority: this.subjectPriorities[subject] || 3,
+            priority: this.subjectPriorities[subject] || this.getDefaultPriority(subject),
             hours: 0
         })).filter(subject => subject.priority > 0);
 
