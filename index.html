@@ -33,6 +33,61 @@
                 </div>
             </section>
 
+            <!-- Configuration Section -->
+<section class="config-section">
+    <h2>⚙️ Study Configuration</h2>
+    
+    <div class="config-grid">
+        <!-- Base Hours Configuration -->
+        <div class="config-group">
+            <h3>Base Hours by Priority</h3>
+            <div class="priority-configs" id="priorityConfigs">
+                <!-- Dynamic priority configs will go here -->
+            </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <div class="config-group">
+            <h3>Advanced Settings</h3>
+            <div class="advanced-configs">
+                <div class="config-item">
+                    <label for="minHoursToInclude">Minimum Hours to Include Subject:</label>
+                    <input type="number" id="minHoursToInclude" min="0.5" max="3" step="0.5" value="1.0">
+                    <span class="config-help">Subjects with less hours will be excluded</span>
+                </div>
+                
+                <div class="config-item">
+                    <label for="roundTo">Round Hours to Nearest:</label>
+                    <select id="roundTo">
+                        <option value="0.5">0.5 hours</option>
+                        <option value="0.25">0.25 hours</option>
+                        <option value="1">1 hour</option>
+                    </select>
+                </div>
+
+                <div class="config-item">
+                    <label for="distributionMethod">Distribution Method:</label>
+                    <select id="distributionMethod">
+                        <option value="priority">Priority Weighted</option>
+                        <option value="equal">Equal Distribution</option>
+                        <option value="highFirst">High Priority First</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Summary -->
+    <div class="config-summary" id="configSummary">
+        <!-- Summary will be generated here -->
+    </div>
+
+    <!-- Error Messages -->
+    <div class="error-message" id="configError" style="display: none;"></div>
+</section>
+
+
+            
             <!-- Subject Priority Section -->
             <section class="priority-section">
                 <h2>🎯 Set Subject Priorities (1-5, 5=Highest)</h2>
@@ -101,4 +156,5 @@
     </script>
 </body>
 </html>
+
 
