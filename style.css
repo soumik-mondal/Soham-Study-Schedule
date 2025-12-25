@@ -125,6 +125,53 @@ section h2 {
 }
 
 /* Hours Input Section */
+.hours-section {
+    position: relative;
+}
+
+.hours-controls {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #48bb78;
+}
+
+.bulk-edit {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.bulk-edit label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.bulk-edit input {
+    padding: 8px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    width: 80px;
+    text-align: center;
+}
+
+.btn-secondary {
+    background: #718096;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #4a5568;
+}
+
 .hours-input-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -134,24 +181,63 @@ section h2 {
 
 .hour-input-item {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
     padding: 15px;
     background: #f8f9fa;
     border-radius: 10px;
     border-left: 4px solid #667eea;
+    transition: transform 0.2s ease;
 }
 
-.hour-input-item label {
+.hour-input-item:hover {
+    transform: translateY(-2px);
+}
+
+.day-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.day-name {
     font-weight: 600;
     color: #4a5568;
+    font-size: 1rem;
+}
+
+.day-date {
     font-size: 0.9rem;
+    color: #718096;
+}
+
+.day-type {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #e2e8f0;
+    color: #4a5568;
+    margin-top: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.day-type.weekend {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.hour-input-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .hour-input {
-    padding: 12px;
+    width: 100px;
+    padding: 10px;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 6px;
+    text-align: center;
     font-size: 1rem;
     transition: all 0.3s ease;
 }
@@ -160,6 +246,37 @@ section h2 {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.hour-label {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.hours-summary {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 10px;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.summary-value {
+    font-size: 1.5rem;
+    font-weight: 700;
 }
 
 /* Buttons */
@@ -173,8 +290,10 @@ section h2 {
     cursor: pointer;
     transition: all 0.3s ease;
     display: block;
-    margin: 0 auto;
+    margin: 20px auto 0;
     font-weight: 600;
+    width: 100%;
+    max-width: 300px;
 }
 
 .generate-btn:hover:not(:disabled) {
@@ -367,96 +486,6 @@ footer {
 .priority-2 { background: #38a169; color: white; }
 .priority-1 { background: #3182ce; color: white; }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    #app {
-        padding: 15px;
-    }
-    
-    header h1 {
-        font-size: 2rem;
-    }
-    
-    .hours-input-grid,
-    .priority-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .schedule-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .date-inputs {
-        grid-template-columns: 1fr;
-    }
-    
-    section {
-        padding: 20px;
-    }
-}
-
-@media (max-width: 480px) {
-    header h1 {
-        font-size: 1.8rem;
-    }
-    
-    .day-header {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
-    }
-    
-    .subject-item {
-        flex-direction: column;
-        gap: 8px;
-        text-align: center;
-    }
-    
-    .subject-info {
-        align-items: center;
-    }
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: #718096;
-}
-
-.empty-state p {
-    font-size: 1.1rem;
-    margin-bottom: 15px;
-}
-
-/* Print Styles */
-@media print {
-    /* Hide unnecessary elements */
-    header, 
-    .date-section,
-    .priority-section,
-    .hours-section,
-    .summary-section,
-    footer,
-    .print-controls {
-        display: none !important;
-    }
-    
-    /* Reset body for printing */
-    body {
-        background: white !important;
-        color: black !important;
-        font-size: 12pt;
-        line-height: 1.4;
-    }
-    
-    #app {
-        max-width: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-    }
-
 /* Configuration Section */
 .config-section {
     background: white;
@@ -612,24 +641,129 @@ footer {
     font-weight: 600;
 }
 
-/* Responsive Design for Config */
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #718096;
+    grid-column: 1 / -1;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
+    #app {
+        padding: 15px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .hours-input-grid,
+    .priority-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .schedule-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .date-inputs {
+        grid-template-columns: 1fr;
+    }
+    
     .config-grid {
         grid-template-columns: 1fr;
     }
     
-    .priority-config {
+    .bulk-edit {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
+        align-items: stretch;
     }
     
-    .priority-label {
-        min-width: auto;
+    .bulk-edit button {
+        width: 100%;
+    }
+    
+    section {
+        padding: 20px;
+    }
+    
+    .hour-input-item {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .hour-input-container {
+        width: 100%;
+    }
+    
+    .hour-input {
+        width: 100%;
     }
 }
-    
 
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .day-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .subject-item {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .subject-info {
+        align-items: center;
+    }
+    
+    .hours-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+/* Print Styles */
+@media print {
+    /* Hide unnecessary elements */
+    header, 
+    .date-section,
+    .config-section,
+    .priority-section,
+    .hours-section,
+    .summary-section,
+    footer,
+    .print-controls {
+        display: none !important;
+    }
+    
+    /* Reset body for printing */
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    #app {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
     
     /* Schedule section for printing */
     .schedule-section {
@@ -724,11 +858,13 @@ footer {
         border-radius: 8pt;
         font-size: 8pt;
     }
+    
     /* Priority 0 (Excluded) badge */
     .priority-excluded {
-    background: #718096 !important;
-    color: white;
+        background: #718096 !important;
+        color: white;
     }
+    
     .subject-hours {
         background: #333 !important;
         color: white !important;
