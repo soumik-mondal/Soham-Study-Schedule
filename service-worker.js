@@ -1,26 +1,45 @@
 const CACHE_NAME = 'soham-study-schedule-v1';
+const ESSENTIAL_ASSETS = [
+    './',
+    './index.html',
+    './style.css',
+    './script.js',
+    './manifest.json'
+];
 
 // Install service worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing...');
+    console.log('Service Worker: Installing v1...');
     
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console.log('Service Worker: Caching app shell');
-                // Only cache essential files that we know exist
-                return cache.addAll([
-                    './',
-                    './index.html'
-                ]).catch(err => {
-                    console.log('Service Worker: Cache addAll error:', err);
-                });
+                console.log('Service Worker: Caching essential assets');
+                // Cache only essential files that exist
+                return Promise.all(
+                    ESSENTIAL_ASSETS.map(asset => {
+                        return cache.add(asset).catch(err => {
+                            console.log(`Service Worker: Could not cache ${asset}:`, err);
+                        });
+                    })
+                );
+            })
+            .catch(err => {
+                console.error('Service Worker: Cache open error:', err);
             })
     );
+    
+    // Force immediate activation
+    self.skipWaiting();
 });
 
 // Fetch resources
 self.addEventListener('fetch', event => {
+    // Only handle GET requests
+    if (event.request.method !== 'GET') {
+        return;
+    }
+    
     console.log('Service Worker: Fetching', event.request.url);
     
     event.respondWith(
@@ -32,13 +51,34 @@ self.addEventListener('fetch', event => {
                     return response;
                 }
                 
-                // Otherwise fetch from network
-                console.log('Service Worker: Fetching from network:', event.request.url);
-                return fetch(event.request);
+                // Otherwise try to fetch from network
+                return fetch(event.request)
+                    .then(response => {
+                        // Don't cache non-successful responses
+                        if (!response || response.status !== 200 || response.type === 'error') {
+                            return response;
+                        }
+                        
+                        // Clone the response
+                        const responseToCache = response.clone();
+                        
+                        // Cache successful responses for future use
+                        caches.open(CACHE_NAME)
+                            .then(cache => {
+                                cache.put(event.request, responseToCache);
+                            });
+                        
+                        return response;
+                    })
+                    .catch(error => {
+                        console.log('Service Worker: Network fetch failed:', error);
+                        // Return cached version if available, or offline page
+                        return caches.match(event.request)
+                            .then(response => response || new Response('Offline - this page is not cached'));
+                    });
             })
             .catch(error => {
-                console.log('Service Worker: Fetch failed:', error);
-                // You could return a custom offline page here
+                console.log('Service Worker: Cache match error:', error);
             })
     );
 });
@@ -59,4 +99,9 @@ self.addEventListener('activate', event => {
             );
         })
     );
+    
+    // Claim all clients immediately
+    self.clients.claim();
 });
+
+console.log('Service Worker: Loaded and ready');

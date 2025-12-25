@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Soham's Study Schedule - Plan your study time effectively with priority-based scheduling">
+    <meta name="theme-color" content="#764ba2">
     <title>Soham's Study Schedule</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="icon-192x192.png">
@@ -23,11 +25,11 @@
                 <div class="date-inputs">
                     <div class="input-group">
                         <label for="startDate">Start Date:</label>
-                        <input type="date" id="startDate" class="date-input">
+                        <input type="date" id="startDate" class="date-input" required>
                     </div>
                     <div class="input-group">
                         <label for="endDate">End Date:</label>
-                        <input type="date" id="endDate" class="date-input">
+                        <input type="date" id="endDate" class="date-input" required>
                     </div>
                     <button id="generateDaysBtn" class="generate-btn">Generate Days</button>
                 </div>
@@ -88,7 +90,7 @@
             
             <!-- Subject Priority Section -->
             <section class="priority-section">
-                <h2>🎯 Set Subject Priorities (1-5, 5=Highest)</h2>
+                <h2>🎯 Set Subject Priorities (1-5, 5=Highest; 0=Exclude)</h2>
                 <div class="priority-grid" id="priorityContainer">
                     <!-- Priority inputs will be generated here -->
                 </div>
@@ -128,7 +130,7 @@
             <section class="schedule-section">
                 <h2>📋 Study Schedule</h2>
                 <div class="print-controls">
-                    <button id="printBtn" class="print-btn">🖨️ Print Schedule</button>
+                    <button id="printBtn" class="print-btn" title="Print your study schedule">🖨️ Print Schedule</button>
                 </div>
                 <div class="schedule-grid" id="scheduleContainer">
                     <div class="empty-state">

@@ -498,6 +498,7 @@ footer {
 .priority-3 { background: #d69e2e; color: white; }
 .priority-2 { background: #38a169; color: white; }
 .priority-1 { background: #3182ce; color: white; }
+.priority-excluded { background: #718096; color: white; }  /* Gray for excluded subjects */
 
 /* Configuration Section */
 .config-section {
@@ -668,6 +669,12 @@ footer {
 }
 
 /* Increase minimum width for priority grid items */
+.priority-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+}
+
 @media (min-width: 768px) {
     .priority-grid {
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
