@@ -874,16 +874,46 @@ class StudySchedule {
         const sortedByPriority = [...filteredSubjects].sort((a, b) => b.priority - a.priority);
         let remainingHours = totalHours;
 
-        // Step 1: Assign base hours
-        console.log('\nStep 1: Assigning base hours');
+        // Step 1: Assign base hours - but cap total to not exceed daily limit
+        console.log('\nStep 1: Assigning base hours (capped to daily limit)');
+        const MAX_DAILY_HOURS = 11;
+        let totalBaseHours = 0;
+        const baseHoursAllocations = [];
+        
         filteredSubjects.forEach(subject => {
             const base = this.config.baseHours[subject.priority] || 0;
             if (base > 0) {
-                subject.hours = base;
-                remainingHours -= base;
-                console.log(`  ${subject.name}: base=${base}, remaining=${remainingHours}`);
+                baseHoursAllocations.push({ subject: subject.name, base, priority: subject.priority });
+                totalBaseHours += base;
             }
         });
+        
+        console.log(`Total base hours (uncapped): ${totalBaseHours.toFixed(2)}`);
+        
+        if (totalBaseHours > MAX_DAILY_HOURS) {
+            // Base hours exceed limit - scale them down proportionally
+            const scaleFactor = MAX_DAILY_HOURS / totalBaseHours;
+            console.log(`⚠️ Base hours exceed daily limit. Scaling down by factor: ${scaleFactor.toFixed(2)}`);
+            
+            filteredSubjects.forEach(subject => {
+                const base = this.config.baseHours[subject.priority] || 0;
+                if (base > 0) {
+                    subject.hours = base * scaleFactor;
+                    remainingHours -= subject.hours;
+                    console.log(`  ${subject.name}: base=${base} × ${scaleFactor.toFixed(2)} = ${subject.hours.toFixed(2)}, remaining=${remainingHours.toFixed(2)}`);
+                }
+            });
+        } else {
+            // Base hours are within limit - assign normally
+            filteredSubjects.forEach(subject => {
+                const base = this.config.baseHours[subject.priority] || 0;
+                if (base > 0) {
+                    subject.hours = base;
+                    remainingHours -= base;
+                    console.log(`  ${subject.name}: base=${base}, remaining=${remainingHours.toFixed(2)}`);
+                }
+            });
+        }
 
         console.log(`After base hours: ${remainingHours.toFixed(2)} hours remaining`);
 
@@ -1006,14 +1036,24 @@ class StudySchedule {
                     console.warn(`⚠️ Could not distribute remaining ${remainingDiff.toFixed(2)} hours while respecting 11-hour daily limit`);
                 }
             } else {
-                // Need to remove hours - remove from lowest priority subject with hours
+                // Need to remove hours - remove from lowest priority subjects
+                console.log(`Removing ${Math.abs(diff).toFixed(2)} hours total`);
+                let remainingToRemove = Math.abs(diff);
                 const sortedByPriority = [...subjectList].sort((a, b) => a.priority - b.priority);
+                
                 for (let subject of sortedByPriority) {
-                    if (subject.hours > 0 && subject.hours + diff > 0) {
-                        subject.hours += diff;
-                        console.log(`Removed ${Math.abs(diff).toFixed(2)} hours from ${subject.name}`);
-                        break;
+                    if (remainingToRemove < 0.01) break;
+                    
+                    if (subject.hours > 0) {
+                        const canRemove = Math.min(remainingToRemove, subject.hours);
+                        subject.hours -= canRemove;
+                        remainingToRemove -= canRemove;
+                        console.log(`Removed ${canRemove.toFixed(2)} hours from ${subject.name} (now ${subject.hours.toFixed(2)}), still need to remove ${remainingToRemove.toFixed(2)}`);
                     }
+                }
+                
+                if (remainingToRemove > 0.01) {
+                    console.warn(`⚠️ Could not remove all ${Math.abs(diff).toFixed(2)} hours (${remainingToRemove.toFixed(2)} unremoved)`);
                 }
             }
         }
