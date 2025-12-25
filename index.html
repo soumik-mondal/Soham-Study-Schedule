@@ -34,59 +34,57 @@
             </section>
 
             <!-- Configuration Section -->
-<section class="config-section">
-    <h2>⚙️ Study Configuration</h2>
-    
-    <div class="config-grid">
-        <!-- Base Hours Configuration -->
-        <div class="config-group">
-            <h3>Base Hours by Priority</h3>
-            <div class="priority-configs" id="priorityConfigs">
-                <!-- Dynamic priority configs will go here -->
-            </div>
-        </div>
-
-        <!-- Advanced Settings -->
-        <div class="config-group">
-            <h3>Advanced Settings</h3>
-            <div class="advanced-configs">
-                <div class="config-item">
-                    <label for="minHoursToInclude">Minimum Hours to Include Subject:</label>
-                    <input type="number" id="minHoursToInclude" min="0.5" max="3" step="0.5" value="1.0">
-                    <span class="config-help">Subjects with less hours will be excluded</span>
-                </div>
+            <section class="config-section">
+                <h2>⚙️ Study Configuration</h2>
                 
-                <div class="config-item">
-                    <label for="roundTo">Round Hours to Nearest:</label>
-                    <select id="roundTo">
-                        <option value="0.5">0.5 hours</option>
-                        <option value="0.25">0.25 hours</option>
-                        <option value="1">1 hour</option>
-                    </select>
+                <div class="config-grid">
+                    <!-- Base Hours Configuration -->
+                    <div class="config-group">
+                        <h3>Base Hours by Priority</h3>
+                        <div class="priority-configs" id="priorityConfigs">
+                            <!-- Dynamic priority configs will go here -->
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings -->
+                    <div class="config-group">
+                        <h3>Advanced Settings</h3>
+                        <div class="advanced-configs">
+                            <div class="config-item">
+                                <label for="minHoursToInclude">Minimum Hours to Include Subject:</label>
+                                <input type="number" id="minHoursToInclude" min="0.5" max="3" step="0.5" value="1.0">
+                                <span class="config-help">Subjects with less hours will be excluded</span>
+                            </div>
+                            
+                            <div class="config-item">
+                                <label for="roundTo">Round Hours to Nearest:</label>
+                                <select id="roundTo">
+                                    <option value="0.5">0.5 hours</option>
+                                    <option value="0.25">0.25 hours</option>
+                                    <option value="1">1 hour</option>
+                                </select>
+                            </div>
+
+                            <div class="config-item">
+                                <label for="distributionMethod">Distribution Method:</label>
+                                <select id="distributionMethod">
+                                    <option value="priority">Priority Weighted</option>
+                                    <option value="equal">Equal Distribution</option>
+                                    <option value="highFirst">High Priority First</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="config-item">
-                    <label for="distributionMethod">Distribution Method:</label>
-                    <select id="distributionMethod">
-                        <option value="priority">Priority Weighted</option>
-                        <option value="equal">Equal Distribution</option>
-                        <option value="highFirst">High Priority First</option>
-                    </select>
+                <!-- Configuration Summary -->
+                <div class="config-summary" id="configSummary">
+                    <!-- Summary will be generated here -->
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Configuration Summary -->
-    <div class="config-summary" id="configSummary">
-        <!-- Summary will be generated here -->
-    </div>
-
-    <!-- Error Messages -->
-    <div class="error-message" id="configError" style="display: none;"></div>
-</section>
-
-
+                <!-- Error Messages -->
+                <div class="error-message" id="configError" style="display: none;"></div>
+            </section>
             
             <!-- Subject Priority Section -->
             <section class="priority-section">
@@ -99,9 +97,28 @@
             <!-- Hours Input Section -->
             <section class="hours-section">
                 <h2>⏰ Set Daily Study Hours</h2>
+                <div class="hours-controls">
+                    <div class="bulk-edit">
+                        <label for="bulkHours">Set all days to:</label>
+                        <input type="number" id="bulkHours" min="0" max="24" step="0.5" value="4">
+                        <button id="applyBulkHours" class="btn-secondary">Apply to All</button>
+                        <button id="applyWeekdayHours" class="btn-secondary">Apply to Weekdays</button>
+                        <button id="applyWeekendHours" class="btn-secondary">Apply to Weekends</button>
+                    </div>
+                </div>
                 <div class="hours-input-grid" id="hoursInputContainer">
                     <div class="empty-state">
                         <p>Set date range first to generate days</p>
+                    </div>
+                </div>
+                <div class="hours-summary" id="hoursSummary">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Hours:</span>
+                        <span class="summary-value" id="totalHoursSum">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Average Daily:</span>
+                        <span class="summary-value" id="averageHours">0</span>
                     </div>
                 </div>
                 <button id="generateScheduleBtn" class="generate-btn" disabled>Generate Schedule</button>
@@ -156,5 +173,3 @@
     </script>
 </body>
 </html>
-
-
