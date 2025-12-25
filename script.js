@@ -345,6 +345,19 @@ class StudySchedule {
                 return '';
             }
             
+            // CRITICAL: Filter out any priority 0 subjects that may have slipped through
+            const validSubjects = day.subjects.filter(subject => {
+                if (subject.priority === 0) {
+                    console.warn(`⚠️ CRITICAL BUG: Priority 0 subject "${subject.name}" found in schedule! Removing.`);
+                    return false;
+                }
+                return true;
+            });
+            
+            if (validSubjects.length === 0) {
+                return '';
+            }
+            
             return `
                 <div class="day-card">
                     <div class="day-header">
@@ -355,7 +368,7 @@ class StudySchedule {
                         <span class="total-hours">${day.totalHours.toFixed(1)} hrs</span>
                     </div>
                     <div class="subjects-list">
-                        ${day.subjects.map(subject => `
+                        ${validSubjects.map(subject => `
                             <div class="subject-item">
                                 <div class="subject-info">
                                     <span class="subject-name">${subject.name}</span>
@@ -925,6 +938,14 @@ class StudySchedule {
         console.log('\nFinalizing distribution...');
         console.log('Before finalization:', subjectList.map(s => `${s.name}:${s.hours}`));
         
+        // CRITICAL: Double-check no priority 0 subjects slipped through
+        const noPriorityZero = subjectList.filter(s => s.priority !== 0);
+        console.log(`Security check: Filtered ${subjectList.length - noPriorityZero.length} priority 0 subjects`);
+        if (noPriorityZero.length < subjectList.length) {
+            console.warn('⚠️ WARNING: Priority 0 subjects found in finalization! Removing them.');
+            subjectList = noPriorityZero;
+        }
+        
         // Step 1: Apply rounding to all subjects
         subjectList.forEach(subject => {
             subject.hours = this.roundTo(subject.hours, this.config.roundTo);
@@ -967,6 +988,11 @@ class StudySchedule {
         const minHours = this.config.minHoursToInclude || 0;
         const finalSubjects = subjectList
             .filter(subject => {
+                // CRITICAL: Exclude priority 0 at final stage
+                if (subject.priority === 0) {
+                    console.log(`FINAL CHECK: Excluding ${subject.name} (priority=0)`);
+                    return false;
+                }
                 const included = subject.hours >= minHours;
                 if (!included) {
                     console.log(`Filtered out ${subject.name}: ${subject.hours.toFixed(2)}h < ${minHours}h`);
