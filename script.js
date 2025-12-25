@@ -25,6 +25,7 @@ class StudySchedule {
         this.renderConfiguration();
         this.attachEventListeners();
         this.setupPrintFunctionality();
+        this.setupBulkEditListeners();
         
         this.generateDaysFromRange();
     }
@@ -146,7 +147,6 @@ class StudySchedule {
     renderConfiguration() {
         this.renderPriorityConfigs();
         this.renderAdvancedConfigs();
-        this.renderPrioritySelection();
         this.renderConfigSummary();
         this.attachConfigEventListeners();
     }
@@ -181,49 +181,6 @@ class StudySchedule {
                 <span>hours base</span>
             `;
             container.appendChild(configItem);
-        }
-    }
-
-    renderPrioritySelection() {
-        const container = document.getElementById('prioritySelection');
-        if (!container) {
-            // Create the container if it doesn't exist
-            const configGroup = document.querySelector('.config-group:nth-child(2)');
-            if (configGroup) {
-                const prioritySelectionDiv = document.createElement('div');
-                prioritySelectionDiv.className = 'priority-selection';
-                prioritySelectionDiv.innerHTML = `
-                    <h4>Include Priorities in Schedule</h4>
-                    <div class="priority-checkboxes" id="prioritySelection">
-                        <!-- Checkboxes will be added here -->
-                    </div>
-                `;
-                configGroup.insertBefore(prioritySelectionDiv, configGroup.querySelector('.advanced-configs'));
-            }
-        }
-
-        const checkboxesContainer = document.getElementById('prioritySelection');
-        if (checkboxesContainer) {
-            let html = '';
-            for (let priority = 1; priority <= 5; priority++) {
-                const isChecked = this.config.includedPriorities.includes(priority);
-                html += `
-                    <div class="priority-checkbox-item">
-                        <input 
-                            type="checkbox" 
-                            id="includePriority-${priority}"
-                            class="priority-checkbox"
-                            value="${priority}"
-                            ${isChecked ? 'checked' : ''}
-                        >
-                        <label for="includePriority-${priority}">
-                            Priority ${priority}
-                            <span class="priority-badge priority-${priority}">P${priority}</span>
-                        </label>
-                    </div>
-                `;
-            }
-            checkboxesContainer.innerHTML = html;
         }
     }
 
@@ -274,34 +231,47 @@ class StudySchedule {
         if (!days || days.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>Set date range first to generate days</p></div>';
             document.getElementById('generateScheduleBtn').disabled = true;
+            this.updateHoursSummary();
             return;
         }
 
         container.innerHTML = days.map(day => {
             const existingDay = this.schedule.find(d => d.date === day.date);
             const totalHours = existingDay ? existingDay.totalHours : 0;
+            const dayOfWeek = new Date(day.date).getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const dayType = isWeekend ? 'Weekend' : 'Weekday';
             
             return `
-                <div class="hour-input-item">
-                    <label for="hours-${day.date}">
-                        ${day.name} (${day.displayDate})
-                    </label>
-                    <input 
-                        type="number" 
-                        id="hours-${day.date}"
-                        class="hour-input"
-                        min="0" 
-                        max="24" 
-                        step="0.5" 
-                        value="${totalHours}"
-                        placeholder="Enter hours"
-                        data-date="${day.date}"
-                    >
+                <div class="hour-input-item" data-date="${day.date}" data-weekend="${isWeekend}">
+                    <div class="day-info">
+                        <div class="day-name">${day.name}</div>
+                        <div class="day-date">${day.displayDate}</div>
+                        <span class="day-type ${isWeekend ? 'weekend' : ''}">${dayType}</span>
+                    </div>
+                    <div class="hour-input-container">
+                        <input 
+                            type="number" 
+                            id="hours-${day.date}"
+                            class="hour-input"
+                            min="0" 
+                            max="24" 
+                            step="0.5" 
+                            value="${totalHours}"
+                            placeholder="0"
+                            data-date="${day.date}"
+                        >
+                        <span class="hour-label">hours</span>
+                    </div>
                 </div>
             `;
         }).join('');
 
+        // Attach input listeners for real-time summary updates
+        this.attachHourInputListeners();
+        
         document.getElementById('generateScheduleBtn').disabled = false;
+        this.updateHoursSummary();
     }
 
     renderSchedule() {
@@ -315,31 +285,42 @@ class StudySchedule {
             return;
         }
 
-        container.innerHTML = this.schedule.map(day => `
-            <div class="day-card">
-                <div class="day-header">
-                    <div>
-                        <div class="day-name">${day.name}</div>
-                        <div class="day-date">${day.displayDate}</div>
-                    </div>
-                    <span class="total-hours">${day.totalHours} hrs</span>
-                </div>
-                <div class="subjects-list">
-                    ${day.subjects.map(subject => `
-                        <div class="subject-item">
-                            <div class="subject-info">
-                                <span class="subject-name">${subject.name}</span>
-                                <span class="subject-priority">
-                                    Priority: ${subject.priority}
-                                    <span class="priority-badge priority-${subject.priority}">P${subject.priority}</span>
-                                </span>
-                            </div>
-                            <span class="subject-hours">${subject.hours} hr${subject.hours !== 1 ? 's' : ''}</span>
+        container.innerHTML = this.schedule.map(day => {
+            if (day.totalHours <= 0 || !day.subjects || day.subjects.length === 0) {
+                return '';
+            }
+            
+            return `
+                <div class="day-card">
+                    <div class="day-header">
+                        <div>
+                            <div class="day-name">${day.name}</div>
+                            <div class="day-date">${day.displayDate}</div>
                         </div>
-                    `).join('')}
+                        <span class="total-hours">${day.totalHours.toFixed(1)} hrs</span>
+                    </div>
+                    <div class="subjects-list">
+                        ${day.subjects.map(subject => `
+                            <div class="subject-item">
+                                <div class="subject-info">
+                                    <span class="subject-name">${subject.name}</span>
+                                    <span class="subject-priority">
+                                        Priority: ${subject.priority}
+                                        <span class="priority-badge priority-${subject.priority}">P${subject.priority}</span>
+                                    </span>
+                                </div>
+                                <span class="subject-hours">${subject.hours.toFixed(1)} hr${subject.hours !== 1 ? 's' : ''}</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
+        // Remove empty cards
+        if (container.innerHTML.trim() === '') {
+            container.innerHTML = '<div class="empty-state"><p>No study scheduled (set hours for days to see schedule)</p></div>';
+        }
     }
 
     renderSummary() {
@@ -348,7 +329,7 @@ class StudySchedule {
         
         const totalStudyHours = this.schedule.reduce((sum, day) => sum + day.totalHours, 0);
         const studyDays = this.schedule.filter(day => day.totalHours > 0).length;
-        const totalSubjects = new Set(this.schedule.flatMap(day => day.subjects.map(s => s.name))).size;
+        const totalSubjects = new Set(this.schedule.flatMap(day => day.subjects?.map(s => s.name) || [])).size;
 
         container.innerHTML = `
             <div class="summary-card">
@@ -412,6 +393,82 @@ class StudySchedule {
         });
     }
 
+    attachHourInputListeners() {
+        document.querySelectorAll('.hour-input').forEach(input => {
+            input.addEventListener('input', () => {
+                this.updateHoursSummary();
+                this.updateScheduleButtonState();
+            });
+            input.addEventListener('change', () => {
+                this.updateHoursSummary();
+                this.updateScheduleButtonState();
+            });
+        });
+    }
+
+    setupBulkEditListeners() {
+        document.getElementById('applyBulkHours').addEventListener('click', () => {
+            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+            this.applyBulkHours(bulkHours);
+        });
+
+        document.getElementById('applyWeekdayHours').addEventListener('click', () => {
+            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+            this.applyBulkHours(bulkHours, false);
+        });
+
+        document.getElementById('applyWeekendHours').addEventListener('click', () => {
+            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+            this.applyBulkHours(bulkHours, true);
+        });
+    }
+
+    applyBulkHours(hours, weekendOnly = null) {
+        if (hours < 0 || hours > 24) {
+            alert('Please enter hours between 0 and 24');
+            return;
+        }
+
+        document.querySelectorAll('.hour-input').forEach(input => {
+            const dayItem = input.closest('.hour-input-item');
+            const isWeekend = dayItem.dataset.weekend === 'true';
+            
+            if (weekendOnly === null || 
+                (weekendOnly === true && isWeekend) || 
+                (weekendOnly === false && !isWeekend)) {
+                input.value = hours;
+            }
+        });
+
+        this.updateHoursSummary();
+        this.updateScheduleButtonState();
+    }
+
+    updateHoursSummary() {
+        const inputs = document.querySelectorAll('.hour-input');
+        let totalHours = 0;
+        let validDays = 0;
+
+        inputs.forEach(input => {
+            const hours = parseFloat(input.value) || 0;
+            if (hours > 0) {
+                totalHours += hours;
+                validDays++;
+            }
+        });
+
+        const averageHours = validDays > 0 ? totalHours / validDays : 0;
+
+        document.getElementById('totalHoursSum').textContent = totalHours.toFixed(1);
+        document.getElementById('averageHours').textContent = averageHours.toFixed(1);
+    }
+
+    updateScheduleButtonState() {
+        const totalHours = parseFloat(document.getElementById('totalHoursSum').textContent) || 0;
+        const button = document.getElementById('generateScheduleBtn');
+        button.disabled = totalHours <= 0;
+    }
+
     attachConfigEventListeners() {
         // Priority base hours changes
         for (let priority = 0; priority <= 5; priority++) {
@@ -419,23 +476,6 @@ class StudySchedule {
             if (input) {
                 input.addEventListener('change', (e) => {
                     this.config.baseHours[priority] = parseFloat(e.target.value);
-                    this.validateAndSaveConfig();
-                });
-            }
-        }
-
-        // Priority inclusion checkboxes
-        for (let priority = 1; priority <= 5; priority++) {
-            const checkbox = document.getElementById(`includePriority-${priority}`);
-            if (checkbox) {
-                checkbox.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        if (!this.config.includedPriorities.includes(priority)) {
-                            this.config.includedPriorities.push(priority);
-                        }
-                    } else {
-                        this.config.includedPriorities = this.config.includedPriorities.filter(p => p !== priority);
-                    }
                     this.validateAndSaveConfig();
                 });
             }
@@ -464,16 +504,7 @@ class StudySchedule {
         // Clear previous errors
         this.hideError();
 
-        // Sort included priorities
-        this.config.includedPriorities.sort((a, b) => a - b);
-
-        // Validation 1: Check if at least one priority is included
-        if (this.config.includedPriorities.length === 0) {
-            this.showError('At least one priority must be included in the schedule!');
-            return;
-        }
-
-        // Validation 2: Check if total base hours for included priorities is reasonable
+        // Validation 1: Check if total base hours for included priorities is reasonable
         const totalBaseHours = this.config.includedPriorities.reduce((sum, priority) => {
             return sum + (this.config.baseHours[priority] || 0);
         }, 0);
@@ -483,13 +514,13 @@ class StudySchedule {
             return;
         }
 
-        // Validation 3: Check if minHoursToInclude is valid
+        // Validation 2: Check if minHoursToInclude is valid
         if (this.config.minHoursToInclude < 0.5) {
             this.showError('Minimum hours to include cannot be less than 0.5 hours.');
             return;
         }
 
-        // Validation 4: Check if any base hours are negative
+        // Validation 3: Check if any base hours are negative
         const negativeHours = Object.entries(this.config.baseHours).find(([p, h]) => h < 0);
         if (negativeHours) {
             this.showError('Base hours cannot be negative!');
@@ -718,7 +749,7 @@ class StudySchedule {
     }
 
     printSchedule() {
-        const hasSchedule = this.schedule.some(day => day.subjects.length > 0);
+        const hasSchedule = this.schedule.some(day => day.subjects && day.subjects.length > 0);
         if (!hasSchedule) {
             alert('Please generate a schedule first before printing.');
             return;
@@ -864,7 +895,7 @@ class StudySchedule {
                         setTimeout(function() {
                             window.close();
                         }, 1000);
-                };
+                    };
                 </script>
             </body>
             </html>
@@ -885,31 +916,34 @@ class StudySchedule {
     generatePrintHTML() {
         if (!this.schedule) return '';
         
-        return this.schedule.map(day => `
+        const scheduledDays = this.schedule.filter(day => day.totalHours > 0 && day.subjects && day.subjects.length > 0);
+        
+        if (scheduledDays.length === 0) {
+            return '<div style="text-align: center; padding: 40px; color: #666;">No study scheduled</div>';
+        }
+        
+        return scheduledDays.map(day => `
             <div class="day-card">
                 <div class="day-header">
                     <div>
                         <div class="day-name">${day.name}</div>
                         <div class="day-date">${day.displayDate}</div>
                     </div>
-                    <span class="total-hours">${day.totalHours} hrs</span>
+                    <span class="total-hours">${day.totalHours.toFixed(1)} hrs</span>
                 </div>
                 <div class="subjects-list">
-                    ${day.subjects && day.subjects.length > 0 ? 
-                        day.subjects.map(subject => `
-                            <div class="subject-item">
-                                <div class="subject-info">
-                                    <span class="subject-name">${subject.name}</span>
-                                    <span class="subject-priority">
-                                        Priority: ${subject.priority}
-                                        <span class="priority-badge">P${subject.priority}</span>
-                                    </span>
-                                </div>
-                                <span class="subject-hours">${subject.hours} hr${subject.hours !== 1 ? 's' : ''}</span>
+                    ${day.subjects.map(subject => `
+                        <div class="subject-item">
+                            <div class="subject-info">
+                                <span class="subject-name">${subject.name}</span>
+                                <span class="subject-priority">
+                                    Priority: ${subject.priority}
+                                    <span class="priority-badge">P${subject.priority}</span>
+                                </span>
                             </div>
-                        `).join('') : 
-                        '<div style="text-align: center; color: #666; padding: 20px;">No study scheduled</div>'
-                    }
+                            <span class="subject-hours">${subject.hours.toFixed(1)} hr${subject.hours !== 1 ? 's' : ''}</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         `).join('');
@@ -920,7 +954,7 @@ class StudySchedule {
         
         const totalStudyHours = this.schedule.reduce((sum, day) => sum + day.totalHours, 0);
         const studyDays = this.schedule.filter(day => day.totalHours > 0).length;
-        const totalSubjects = new Set(this.schedule.flatMap(day => day.subjects.map(s => s.name))).size;
+        const totalSubjects = new Set(this.schedule.flatMap(day => day.subjects?.map(s => s.name) || [])).size;
         
         return `
             <div class="summary-item"><strong>Total Study Hours:</strong> ${totalStudyHours.toFixed(1)}</div>
