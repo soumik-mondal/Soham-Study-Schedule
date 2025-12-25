@@ -1037,13 +1037,20 @@ class StudySchedule {
                 }
             } else {
                 // Need to remove hours - remove from lowest priority subjects
-                // But DON'T remove so much that a subject falls below minimum threshold
+                // CRITICAL: NEVER remove hours from P4 or P5 subjects - they're mandatory
+                // Only remove from P1-P3, and accept if we can't hit exact target
                 const minHours = this.config.minHoursToInclude || 0;
-                console.log(`Removing ${Math.abs(diff).toFixed(2)} hours total (min threshold: ${minHours}h)`);
+                console.log(`Removing ${Math.abs(diff).toFixed(2)} hours total (protecting P4/P5 subjects)`);
                 let remainingToRemove = Math.abs(diff);
-                const sortedByPriority = [...subjectList].sort((a, b) => a.priority - b.priority);
                 
-                for (let subject of sortedByPriority) {
+                // Sort by priority, but skip P4 and P5
+                const removableSubjects = subjectList
+                    .filter(s => s.priority < 4)  // Only P1-P3 are removable
+                    .sort((a, b) => a.priority - b.priority);
+                
+                console.log(`Removable subjects (P1-P3): ${removableSubjects.map(s => s.name).join(', ')}`);
+                
+                for (let subject of removableSubjects) {
                     if (remainingToRemove < 0.01) break;
                     
                     if (subject.hours > minHours) {
@@ -1054,15 +1061,15 @@ class StudySchedule {
                         if (canRemove > 0.01) {
                             subject.hours -= canRemove;
                             remainingToRemove -= canRemove;
-                            console.log(`Removed ${canRemove.toFixed(2)} hours from ${subject.name} (now ${subject.hours.toFixed(2)}, min is ${minHours}), still need to remove ${remainingToRemove.toFixed(2)}`);
+                            console.log(`Removed ${canRemove.toFixed(2)} hours from ${subject.name} (P${subject.priority}, now ${subject.hours.toFixed(2)}), still need to remove ${remainingToRemove.toFixed(2)}`);
                         } else {
-                            console.log(`Cannot remove from ${subject.name}: would drop below minimum (${minHours}h)`);
+                            console.log(`Cannot remove from ${subject.name} (P${subject.priority}): would drop below minimum`);
                         }
                     }
                 }
                 
                 if (remainingToRemove > 0.01) {
-                    console.warn(`⚠️ Could not remove all ${Math.abs(diff).toFixed(2)} hours while respecting minimum threshold (${remainingToRemove.toFixed(2)} unremoved)`);
+                    console.warn(`⚠️ Could not remove all ${Math.abs(diff).toFixed(2)} hours while protecting P4/P5 subjects (${remainingToRemove.toFixed(2)} unremoved). Accepting slight overage to ensure P4/P5 coverage.`);
                 }
             }
         }
