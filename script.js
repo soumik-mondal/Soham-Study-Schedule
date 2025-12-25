@@ -84,15 +84,17 @@ class StudySchedule {
     getDefaultConfig() {
         return {
             baseHours: {
-                5: 1.5,
-                4: 1.5,
-                3: 1.5,
+                0: 0,   // Priority 0: excluded
+                1: 1.0,
                 2: 1.0,
-                1: 1.0
+                3: 1.5,
+                4: 1.5,
+                5: 1.5
             },
             minHoursToInclude: 1.0,
             roundTo: 0.5,
-            distributionMethod: 'priority'
+            distributionMethod: 'priority',
+            includedPriorities: [1, 2, 3, 4, 5] // By default, include all priorities except 0
         };
     }
 
@@ -124,9 +126,10 @@ class StudySchedule {
                 <div class="priority-item">
                     <label for="priority-${subjectId}">
                         ${subject} 
-                        <span class="priority-badge priority-${priority}">P${priority}</span>
+                        <span class="priority-badge priority-${priority}">${priority === 0 ? 'Excluded' : 'P' + priority}</span>
                     </label>
                     <select id="priority-${subjectId}" class="priority-input" data-subject="${subject}">
+                        <option value="0" ${priority === 0 ? 'selected' : ''}>Exclude (0)</option>
                         <option value="1" ${priority === 1 ? 'selected' : ''}>Priority 1</option>
                         <option value="2" ${priority === 2 ? 'selected' : ''}>Priority 2</option>
                         <option value="3" ${priority === 3 ? 'selected' : ''}>Priority 3</option>
@@ -143,6 +146,7 @@ class StudySchedule {
     renderConfiguration() {
         this.renderPriorityConfigs();
         this.renderAdvancedConfigs();
+        this.renderPrioritySelection();
         this.renderConfigSummary();
         this.attachConfigEventListeners();
     }
@@ -153,13 +157,16 @@ class StudySchedule {
 
         container.innerHTML = '';
         
-        for (let priority = 5; priority >= 1; priority--) {
+        for (let priority = 5; priority >= 0; priority--) {
             const configItem = document.createElement('div');
             configItem.className = 'priority-config';
+            const priorityLabel = priority === 0 ? 'Excluded (0)' : `Priority ${priority}`;
+            const badgeClass = priority === 0 ? 'priority-excluded' : `priority-${priority}`;
+            
             configItem.innerHTML = `
                 <span class="priority-label">
-                    Priority ${priority}
-                    <span class="priority-badge priority-${priority}">P${priority}</span>
+                    ${priorityLabel}
+                    <span class="priority-badge ${badgeClass}">${priority === 0 ? 'Ex' : 'P' + priority}</span>
                 </span>
                 <input 
                     type="number" 
@@ -168,11 +175,55 @@ class StudySchedule {
                     min="0" 
                     max="4" 
                     step="0.5" 
-                    value="${this.config.baseHours[priority]}"
+                    value="${this.config.baseHours[priority] || 0}"
+                    ${priority === 0 ? 'disabled' : ''}
                 >
                 <span>hours base</span>
             `;
             container.appendChild(configItem);
+        }
+    }
+
+    renderPrioritySelection() {
+        const container = document.getElementById('prioritySelection');
+        if (!container) {
+            // Create the container if it doesn't exist
+            const configGroup = document.querySelector('.config-group:nth-child(2)');
+            if (configGroup) {
+                const prioritySelectionDiv = document.createElement('div');
+                prioritySelectionDiv.className = 'priority-selection';
+                prioritySelectionDiv.innerHTML = `
+                    <h4>Include Priorities in Schedule</h4>
+                    <div class="priority-checkboxes" id="prioritySelection">
+                        <!-- Checkboxes will be added here -->
+                    </div>
+                `;
+                configGroup.insertBefore(prioritySelectionDiv, configGroup.querySelector('.advanced-configs'));
+            }
+        }
+
+        const checkboxesContainer = document.getElementById('prioritySelection');
+        if (checkboxesContainer) {
+            let html = '';
+            for (let priority = 1; priority <= 5; priority++) {
+                const isChecked = this.config.includedPriorities.includes(priority);
+                html += `
+                    <div class="priority-checkbox-item">
+                        <input 
+                            type="checkbox" 
+                            id="includePriority-${priority}"
+                            class="priority-checkbox"
+                            value="${priority}"
+                            ${isChecked ? 'checked' : ''}
+                        >
+                        <label for="includePriority-${priority}">
+                            Priority ${priority}
+                            <span class="priority-badge priority-${priority}">P${priority}</span>
+                        </label>
+                    </div>
+                `;
+            }
+            checkboxesContainer.innerHTML = html;
         }
     }
 
@@ -186,11 +237,12 @@ class StudySchedule {
         const container = document.getElementById('configSummary');
         if (!container) return;
 
-        const totalBaseHours = Object.values(this.config.baseHours).reduce((sum, hours) => sum + hours, 0);
-        const includedPriorities = Object.entries(this.config.baseHours)
-            .filter(([priority, hours]) => hours > 0)
-            .map(([priority]) => `P${priority}`)
-            .join(', ');
+        const activePriorities = this.config.includedPriorities;
+        const totalBaseHours = activePriorities.reduce((sum, priority) => {
+            return sum + (this.config.baseHours[priority] || 0);
+        }, 0);
+        
+        const includedPriorities = activePriorities.map(p => `P${p}`).join(', ');
 
         container.innerHTML = `
             <h3>📋 Configuration Summary</h3>
@@ -208,8 +260,8 @@ class StudySchedule {
                     <div class="summary-label">Round To</div>
                 </div>
                 <div class="summary-item">
-                    <div class="summary-value">${includedPriorities}</div>
-                    <div class="summary-label">Active Priorities</div>
+                    <div class="summary-value">${includedPriorities || 'None'}</div>
+                    <div class="summary-label">Included Priorities</div>
                 </div>
             </div>
         `;
@@ -338,28 +390,52 @@ class StudySchedule {
 
     attachPriorityEventListeners() {
         document.querySelectorAll('.priority-input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const subject = e.target.dataset.subject;
-                const priority = parseInt(e.target.value);
-                this.subjectPriorities[subject] = priority;
-                this.saveData();
-                
-                const badge = e.target.previousElementSibling.querySelector('.priority-badge');
-                if (badge) {
-                    badge.className = `priority-badge priority-${priority}`;
-                    badge.textContent = `P${priority}`;
-                }
-            });
+            if (input.type === 'select-one') {
+                input.addEventListener('change', (e) => {
+                    const subject = e.target.dataset.subject;
+                    const priority = parseInt(e.target.value);
+                    this.subjectPriorities[subject] = priority;
+                    this.saveData();
+                    
+                    const badge = e.target.previousElementSibling.querySelector('.priority-badge');
+                    if (badge) {
+                        if (priority === 0) {
+                            badge.className = 'priority-badge priority-excluded';
+                            badge.textContent = 'Excluded';
+                        } else {
+                            badge.className = `priority-badge priority-${priority}`;
+                            badge.textContent = `P${priority}`;
+                        }
+                    }
+                });
+            }
         });
     }
 
     attachConfigEventListeners() {
         // Priority base hours changes
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
             const input = document.getElementById(`baseHours-${priority}`);
             if (input) {
                 input.addEventListener('change', (e) => {
                     this.config.baseHours[priority] = parseFloat(e.target.value);
+                    this.validateAndSaveConfig();
+                });
+            }
+        }
+
+        // Priority inclusion checkboxes
+        for (let priority = 1; priority <= 5; priority++) {
+            const checkbox = document.getElementById(`includePriority-${priority}`);
+            if (checkbox) {
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        if (!this.config.includedPriorities.includes(priority)) {
+                            this.config.includedPriorities.push(priority);
+                        }
+                    } else {
+                        this.config.includedPriorities = this.config.includedPriorities.filter(p => p !== priority);
+                    }
                     this.validateAndSaveConfig();
                 });
             }
@@ -388,30 +464,35 @@ class StudySchedule {
         // Clear previous errors
         this.hideError();
 
-        // Validation 1: Check if total base hours is reasonable
-        const totalBaseHours = Object.values(this.config.baseHours).reduce((sum, hours) => sum + hours, 0);
+        // Sort included priorities
+        this.config.includedPriorities.sort((a, b) => a - b);
+
+        // Validation 1: Check if at least one priority is included
+        if (this.config.includedPriorities.length === 0) {
+            this.showError('At least one priority must be included in the schedule!');
+            return;
+        }
+
+        // Validation 2: Check if total base hours for included priorities is reasonable
+        const totalBaseHours = this.config.includedPriorities.reduce((sum, priority) => {
+            return sum + (this.config.baseHours[priority] || 0);
+        }, 0);
+        
         if (totalBaseHours > 12) {
             this.showError('Total base hours too high! Maximum recommended is 12 hours.');
             return;
         }
 
-        // Validation 2: Check if minHoursToInclude is valid
+        // Validation 3: Check if minHoursToInclude is valid
         if (this.config.minHoursToInclude < 0.5) {
             this.showError('Minimum hours to include cannot be less than 0.5 hours.');
             return;
         }
 
-        // Validation 3: Check if any base hours are negative
+        // Validation 4: Check if any base hours are negative
         const negativeHours = Object.entries(this.config.baseHours).find(([p, h]) => h < 0);
         if (negativeHours) {
             this.showError('Base hours cannot be negative!');
-            return;
-        }
-
-        // Validation 4: Check if distribution makes sense
-        const activePriorities = Object.entries(this.config.baseHours).filter(([p, h]) => h > 0);
-        if (activePriorities.length === 0) {
-            this.showError('At least one priority must have base hours greater than 0!');
             return;
         }
 
@@ -510,16 +591,26 @@ class StudySchedule {
     }
 
     distributeSubjects(totalHours) {
+        // Create subject list with priorities
         const subjectList = this.subjects.map(subject => ({
             name: subject,
             priority: this.subjectPriorities[subject] || 3,
             hours: 0
         }));
 
+        // Filter subjects: exclude priority 0 and priorities not in includedPriorities
+        const filteredSubjects = subjectList.filter(subject => 
+            subject.priority !== 0 && this.config.includedPriorities.includes(subject.priority)
+        );
+
+        if (filteredSubjects.length === 0) {
+            return [];
+        }
+
         let remainingHours = totalHours;
 
-        // Phase 1: Assign base hours based on configuration
-        subjectList.forEach(subject => {
+        // Phase 1: Assign base hours based on configuration (only for included priorities)
+        filteredSubjects.forEach(subject => {
             const base = this.config.baseHours[subject.priority] || 0;
             if (remainingHours >= base && base > 0) {
                 subject.hours = base;
@@ -531,19 +622,19 @@ class StudySchedule {
         if (remainingHours > 0) {
             switch (this.config.distributionMethod) {
                 case 'priority':
-                    this.distributeByPriority(subjectList, remainingHours);
+                    this.distributeByPriority(filteredSubjects, remainingHours);
                     break;
                 case 'equal':
-                    this.distributeEqually(subjectList, remainingHours);
+                    this.distributeEqually(filteredSubjects, remainingHours);
                     break;
                 case 'highFirst':
-                    this.distributeHighFirst(subjectList, remainingHours);
+                    this.distributeHighFirst(filteredSubjects, remainingHours);
                     break;
             }
         }
 
         // Phase 3: Apply rounding and filtering
-        return this.finalizeDistribution(subjectList, totalHours);
+        return this.finalizeDistribution(filteredSubjects, totalHours);
     }
 
     distributeByPriority(subjectList, remainingHours) {
@@ -773,7 +864,7 @@ class StudySchedule {
                         setTimeout(function() {
                             window.close();
                         }, 1000);
-                    };
+                };
                 </script>
             </body>
             </html>
