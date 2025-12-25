@@ -60,7 +60,12 @@ class StudySchedule {
         try {
             const savedConfig = localStorage.getItem('sohamStudyConfig');
             if (savedConfig) {
-                this.config = JSON.parse(savedConfig);
+                const parsedConfig = JSON.parse(savedConfig);
+                // Merge with default config to ensure all properties exist
+                this.config = {
+                    ...this.getDefaultConfig(),
+                    ...parsedConfig
+                };
             } else {
                 this.config = this.getDefaultConfig();
             }
@@ -98,7 +103,7 @@ class StudySchedule {
             minHoursToInclude: 1.0,
             roundTo: 0.5,
             distributionMethod: 'priority',
-            includedPriorities: [1, 2, 3, 4, 5] // By default, include all priorities except 0
+            includedPriorities: [1, 2, 3, 4, 5] // Ensure this is always defined
         };
     }
 
@@ -119,8 +124,11 @@ class StudySchedule {
             return date.toISOString().split('T')[0];
         };
         
-        document.getElementById('startDate').value = formatDate(startDate);
-        document.getElementById('endDate').value = formatDate(endDate);
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        
+        if (startDateInput) startDateInput.value = formatDate(startDate);
+        if (endDateInput) endDateInput.value = formatDate(endDate);
     }
 
     renderPriorityInputs() {
@@ -193,18 +201,26 @@ class StudySchedule {
     }
 
     renderAdvancedConfigs() {
-        document.getElementById('minHoursToInclude').value = this.config.minHoursToInclude;
-        document.getElementById('roundTo').value = this.config.roundTo.toString();
-        document.getElementById('distributionMethod').value = this.config.distributionMethod;
+        const minHoursInput = document.getElementById('minHoursToInclude');
+        const roundToSelect = document.getElementById('roundTo');
+        const distributionMethodSelect = document.getElementById('distributionMethod');
+        
+        if (minHoursInput) minHoursInput.value = this.config.minHoursToInclude;
+        if (roundToSelect) roundToSelect.value = this.config.roundTo.toString();
+        if (distributionMethodSelect) distributionMethodSelect.value = this.config.distributionMethod;
     }
 
     renderConfigSummary() {
         const container = document.getElementById('configSummary');
         if (!container) return;
 
-        const activePriorities = this.config.includedPriorities;
+        // Ensure includedPriorities is always an array
+        const activePriorities = Array.isArray(this.config.includedPriorities) 
+            ? this.config.includedPriorities 
+            : [1, 2, 3, 4, 5];
+        
         const totalBaseHours = activePriorities.reduce((sum, priority) => {
-            return sum + (this.config.baseHours[priority] || 0);
+            return sum + (this.config.baseHours && this.config.baseHours[priority] ? this.config.baseHours[priority] : 0);
         }, 0);
         
         const includedPriorities = activePriorities.map(p => `P${p}`).join(', ');
@@ -238,7 +254,8 @@ class StudySchedule {
         
         if (!this.schedule || this.schedule.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>Set date range first to generate days</p></div>';
-            document.getElementById('generateScheduleBtn').disabled = true;
+            const generateScheduleBtn = document.getElementById('generateScheduleBtn');
+            if (generateScheduleBtn) generateScheduleBtn.disabled = true;
             this.updateHoursSummary();
             return;
         }
@@ -278,7 +295,9 @@ class StudySchedule {
         // Attach input listeners for real-time summary updates
         this.attachHourInputListeners();
         
-        document.getElementById('generateScheduleBtn').disabled = false;
+        const generateScheduleBtn = document.getElementById('generateScheduleBtn');
+        if (generateScheduleBtn) generateScheduleBtn.disabled = false;
+        
         this.updateHoursSummary();
     }
 
@@ -293,7 +312,7 @@ class StudySchedule {
             return;
         }
 
-        container.innerHTML = this.schedule.map(day => {
+        const scheduleHTML = this.schedule.map(day => {
             if (day.totalHours <= 0 || !day.subjects || day.subjects.length === 0) {
                 return '';
             }
@@ -326,8 +345,10 @@ class StudySchedule {
         }).join('');
 
         // Remove empty cards
-        if (container.innerHTML.trim() === '') {
+        if (scheduleHTML.trim() === '') {
             container.innerHTML = '<div class="empty-state"><p>No study scheduled (set hours for days to see schedule)</p></div>';
+        } else {
+            container.innerHTML = scheduleHTML;
         }
     }
 
@@ -549,6 +570,11 @@ class StudySchedule {
         // Clear previous errors
         this.hideError();
 
+        // Ensure includedPriorities is always an array
+        if (!Array.isArray(this.config.includedPriorities)) {
+            this.config.includedPriorities = [1, 2, 3, 4, 5];
+        }
+
         // Validation 1: Check if total base hours for included priorities is reasonable
         const totalBaseHours = this.config.includedPriorities.reduce((sum, priority) => {
             return sum + (this.config.baseHours[priority] || 0);
@@ -702,9 +728,14 @@ class StudySchedule {
             hours: 0
         }));
 
+        // Ensure includedPriorities is an array
+        const includedPriorities = Array.isArray(this.config.includedPriorities) 
+            ? this.config.includedPriorities 
+            : [1, 2, 3, 4, 5];
+        
         // Filter subjects: exclude priority 0 and priorities not in includedPriorities
         const filteredSubjects = subjectList.filter(subject => 
-            subject.priority !== 0 && this.config.includedPriorities.includes(subject.priority)
+            subject.priority !== 0 && includedPriorities.includes(subject.priority)
         );
 
         if (filteredSubjects.length === 0) {
@@ -715,7 +746,9 @@ class StudySchedule {
 
         // Phase 1: Assign base hours based on configuration (only for included priorities)
         filteredSubjects.forEach(subject => {
-            const base = this.config.baseHours[subject.priority] || 0;
+            const base = this.config.baseHours && this.config.baseHours[subject.priority] 
+                ? this.config.baseHours[subject.priority] 
+                : 0;
             if (remainingHours >= base && base > 0) {
                 subject.hours = base;
                 remainingHours -= base;
@@ -1046,5 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Study Schedule App initialized successfully');
     } catch (error) {
         console.error('Error initializing Study Schedule App:', error);
+        // Show user-friendly error message
+        alert('Error loading the study schedule app. Please refresh the page.');
     }
 });
