@@ -27,7 +27,10 @@ class StudySchedule {
         this.setupPrintFunctionality();
         this.setupBulkEditListeners();
         
-        this.generateDaysFromRange();
+        // Generate days on initial load
+        setTimeout(() => {
+            this.generateDaysFromRange();
+        }, 100);
     }
 
     loadData() {
@@ -111,8 +114,13 @@ class StudySchedule {
         const endDate = new Date(today);
         endDate.setDate(today.getDate() + 6);
         
-        document.getElementById('startDate').valueAsDate = startDate;
-        document.getElementById('endDate').valueAsDate = endDate;
+        // Format dates as YYYY-MM-DD
+        const formatDate = (date) => {
+            return date.toISOString().split('T')[0];
+        };
+        
+        document.getElementById('startDate').value = formatDate(startDate);
+        document.getElementById('endDate').value = formatDate(endDate);
     }
 
     renderPriorityInputs() {
@@ -224,23 +232,23 @@ class StudySchedule {
         `;
     }
 
-    renderHoursInputs(days) {
+    renderHoursInputs() {
         const container = document.getElementById('hoursInputContainer');
         if (!container) return;
         
-        if (!days || days.length === 0) {
+        if (!this.schedule || this.schedule.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>Set date range first to generate days</p></div>';
             document.getElementById('generateScheduleBtn').disabled = true;
             this.updateHoursSummary();
             return;
         }
 
-        container.innerHTML = days.map(day => {
-            const existingDay = this.schedule.find(d => d.date === day.date);
-            const totalHours = existingDay ? existingDay.totalHours : 0;
+        container.innerHTML = this.schedule.map(day => {
             const dayOfWeek = new Date(day.date).getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const dayType = isWeekend ? 'Weekend' : 'Weekday';
+            const defaultHours = isWeekend ? 6 : 4;
+            const totalHours = day.totalHours > 0 ? day.totalHours : defaultHours;
             
             return `
                 <div class="hour-input-item" data-date="${day.date}" data-weekend="${isWeekend}">
@@ -348,25 +356,39 @@ class StudySchedule {
     }
 
     attachEventListeners() {
-        document.getElementById('generateDaysBtn').addEventListener('click', () => {
-            this.generateDaysFromRange();
-        });
+        const generateDaysBtn = document.getElementById('generateDaysBtn');
+        if (generateDaysBtn) {
+            generateDaysBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.generateDaysFromRange();
+            });
+        }
 
-        document.getElementById('generateScheduleBtn').addEventListener('click', () => {
-            this.updateHoursFromInputs();
-            this.generateSchedule();
-            this.renderSchedule();
-            this.renderSummary();
-            this.saveData();
-        });
+        const generateScheduleBtn = document.getElementById('generateScheduleBtn');
+        if (generateScheduleBtn) {
+            generateScheduleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.updateHoursFromInputs();
+                this.generateSchedule();
+                this.renderSchedule();
+                this.renderSummary();
+                this.saveData();
+            });
+        }
 
-        document.getElementById('startDate').addEventListener('change', () => {
-            this.generateDaysFromRange();
-        });
+        const startDateInput = document.getElementById('startDate');
+        if (startDateInput) {
+            startDateInput.addEventListener('change', () => {
+                this.generateDaysFromRange();
+            });
+        }
         
-        document.getElementById('endDate').addEventListener('change', () => {
-            this.generateDaysFromRange();
-        });
+        const endDateInput = document.getElementById('endDate');
+        if (endDateInput) {
+            endDateInput.addEventListener('change', () => {
+                this.generateDaysFromRange();
+            });
+        }
     }
 
     attachPriorityEventListeners() {
@@ -407,20 +429,29 @@ class StudySchedule {
     }
 
     setupBulkEditListeners() {
-        document.getElementById('applyBulkHours').addEventListener('click', () => {
-            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
-            this.applyBulkHours(bulkHours);
-        });
+        const applyBulkHoursBtn = document.getElementById('applyBulkHours');
+        if (applyBulkHoursBtn) {
+            applyBulkHoursBtn.addEventListener('click', () => {
+                const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+                this.applyBulkHours(bulkHours);
+            });
+        }
 
-        document.getElementById('applyWeekdayHours').addEventListener('click', () => {
-            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
-            this.applyBulkHours(bulkHours, false);
-        });
+        const applyWeekdayHoursBtn = document.getElementById('applyWeekdayHours');
+        if (applyWeekdayHoursBtn) {
+            applyWeekdayHoursBtn.addEventListener('click', () => {
+                const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+                this.applyBulkHours(bulkHours, false);
+            });
+        }
 
-        document.getElementById('applyWeekendHours').addEventListener('click', () => {
-            const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
-            this.applyBulkHours(bulkHours, true);
-        });
+        const applyWeekendHoursBtn = document.getElementById('applyWeekendHours');
+        if (applyWeekendHoursBtn) {
+            applyWeekendHoursBtn.addEventListener('click', () => {
+                const bulkHours = parseFloat(document.getElementById('bulkHours').value) || 0;
+                this.applyBulkHours(bulkHours, true);
+            });
+        }
     }
 
     applyBulkHours(hours, weekendOnly = null) {
@@ -431,7 +462,7 @@ class StudySchedule {
 
         document.querySelectorAll('.hour-input').forEach(input => {
             const dayItem = input.closest('.hour-input-item');
-            const isWeekend = dayItem.dataset.weekend === 'true';
+            const isWeekend = dayItem && dayItem.dataset.weekend === 'true';
             
             if (weekendOnly === null || 
                 (weekendOnly === true && isWeekend) || 
@@ -459,14 +490,19 @@ class StudySchedule {
 
         const averageHours = validDays > 0 ? totalHours / validDays : 0;
 
-        document.getElementById('totalHoursSum').textContent = totalHours.toFixed(1);
-        document.getElementById('averageHours').textContent = averageHours.toFixed(1);
+        const totalHoursElement = document.getElementById('totalHoursSum');
+        const averageHoursElement = document.getElementById('averageHours');
+        
+        if (totalHoursElement) totalHoursElement.textContent = totalHours.toFixed(1);
+        if (averageHoursElement) averageHoursElement.textContent = averageHours.toFixed(1);
     }
 
     updateScheduleButtonState() {
-        const totalHours = parseFloat(document.getElementById('totalHoursSum').textContent) || 0;
+        const totalHours = parseFloat(document.getElementById('totalHoursSum')?.textContent) || 0;
         const button = document.getElementById('generateScheduleBtn');
-        button.disabled = totalHours <= 0;
+        if (button) {
+            button.disabled = totalHours <= 0;
+        }
     }
 
     attachConfigEventListeners() {
@@ -482,20 +518,29 @@ class StudySchedule {
         }
 
         // Advanced config changes
-        document.getElementById('minHoursToInclude').addEventListener('change', (e) => {
-            this.config.minHoursToInclude = parseFloat(e.target.value);
-            this.validateAndSaveConfig();
-        });
+        const minHoursInput = document.getElementById('minHoursToInclude');
+        if (minHoursInput) {
+            minHoursInput.addEventListener('change', (e) => {
+                this.config.minHoursToInclude = parseFloat(e.target.value);
+                this.validateAndSaveConfig();
+            });
+        }
 
-        document.getElementById('roundTo').addEventListener('change', (e) => {
-            this.config.roundTo = parseFloat(e.target.value);
-            this.validateAndSaveConfig();
-        });
+        const roundToSelect = document.getElementById('roundTo');
+        if (roundToSelect) {
+            roundToSelect.addEventListener('change', (e) => {
+                this.config.roundTo = parseFloat(e.target.value);
+                this.validateAndSaveConfig();
+            });
+        }
 
-        document.getElementById('distributionMethod').addEventListener('change', (e) => {
-            this.config.distributionMethod = e.target.value;
-            this.validateAndSaveConfig();
-        });
+        const distributionMethodSelect = document.getElementById('distributionMethod');
+        if (distributionMethodSelect) {
+            distributionMethodSelect.addEventListener('change', (e) => {
+                this.config.distributionMethod = e.target.value;
+                this.validateAndSaveConfig();
+            });
+        }
     }
 
     validateAndSaveConfig() {
@@ -535,26 +580,32 @@ class StudySchedule {
 
     showError(message) {
         const errorContainer = document.getElementById('configError');
-        errorContainer.textContent = message;
-        errorContainer.style.display = 'block';
-        errorContainer.className = 'error-message';
+        if (errorContainer) {
+            errorContainer.textContent = message;
+            errorContainer.style.display = 'block';
+            errorContainer.className = 'error-message';
+        }
     }
 
     showSuccess(message) {
         const errorContainer = document.getElementById('configError');
-        errorContainer.textContent = message;
-        errorContainer.style.display = 'block';
-        errorContainer.className = 'success-message';
-        
-        // Auto-hide success message after 3 seconds
-        setTimeout(() => {
-            this.hideError();
-        }, 3000);
+        if (errorContainer) {
+            errorContainer.textContent = message;
+            errorContainer.style.display = 'block';
+            errorContainer.className = 'success-message';
+            
+            // Auto-hide success message after 3 seconds
+            setTimeout(() => {
+                this.hideError();
+            }, 3000);
+        }
     }
 
     hideError() {
         const errorContainer = document.getElementById('configError');
-        errorContainer.style.display = 'none';
+        if (errorContainer) {
+            errorContainer.style.display = 'none';
+        }
     }
 
     setupPrintFunctionality() {
@@ -567,11 +618,27 @@ class StudySchedule {
     }
 
     generateDaysFromRange() {
-        const startDate = new Date(document.getElementById('startDate').value);
-        const endDate = new Date(document.getElementById('endDate').value);
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        
+        if (!startDateInput || !endDateInput) {
+            console.error('Date inputs not found');
+            return;
+        }
 
-        if (!startDate || !endDate || startDate > endDate) {
-            alert('Please select a valid date range');
+        const startDateValue = startDateInput.value;
+        const endDateValue = endDateInput.value;
+
+        if (!startDateValue || !endDateValue) {
+            console.log('Please select both start and end dates');
+            return;
+        }
+
+        const startDate = new Date(startDateValue);
+        const endDate = new Date(endDateValue);
+
+        if (startDate > endDate) {
+            alert('Start date cannot be after end date');
             return;
         }
 
@@ -586,21 +653,27 @@ class StudySchedule {
                 year: 'numeric'
             });
             
+            // Check if we already have this day in the schedule with saved data
+            const existingDay = this.schedule.find(d => d.date === dateString);
+            
             days.push({
                 name: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
                 date: dateString,
                 displayDate: displayDate,
-                totalHours: 0,
-                subjects: []
+                totalHours: existingDay ? existingDay.totalHours : 0,
+                subjects: existingDay ? existingDay.subjects : []
             });
+            
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
         this.schedule = days;
-        this.renderHoursInputs(days);
+        this.renderHoursInputs();
         this.renderSchedule();
         this.renderSummary();
         this.saveData();
+        
+        console.log(`Generated ${days.length} days from ${startDateValue} to ${endDateValue}`);
     }
 
     updateHoursFromInputs() {
