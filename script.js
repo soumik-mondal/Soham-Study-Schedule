@@ -1037,28 +1037,38 @@ class StudySchedule {
                 }
             } else {
                 // Need to remove hours - remove from lowest priority subjects
-                console.log(`Removing ${Math.abs(diff).toFixed(2)} hours total`);
+                // But DON'T remove so much that a subject falls below minimum threshold
+                const minHours = this.config.minHoursToInclude || 0;
+                console.log(`Removing ${Math.abs(diff).toFixed(2)} hours total (min threshold: ${minHours}h)`);
                 let remainingToRemove = Math.abs(diff);
                 const sortedByPriority = [...subjectList].sort((a, b) => a.priority - b.priority);
                 
                 for (let subject of sortedByPriority) {
                     if (remainingToRemove < 0.01) break;
                     
-                    if (subject.hours > 0) {
-                        const canRemove = Math.min(remainingToRemove, subject.hours);
-                        subject.hours -= canRemove;
-                        remainingToRemove -= canRemove;
-                        console.log(`Removed ${canRemove.toFixed(2)} hours from ${subject.name} (now ${subject.hours.toFixed(2)}), still need to remove ${remainingToRemove.toFixed(2)}`);
+                    if (subject.hours > minHours) {
+                        // Can only remove down to the minimum threshold
+                        const maxCanRemove = subject.hours - minHours;
+                        const canRemove = Math.min(remainingToRemove, maxCanRemove);
+                        
+                        if (canRemove > 0.01) {
+                            subject.hours -= canRemove;
+                            remainingToRemove -= canRemove;
+                            console.log(`Removed ${canRemove.toFixed(2)} hours from ${subject.name} (now ${subject.hours.toFixed(2)}, min is ${minHours}), still need to remove ${remainingToRemove.toFixed(2)}`);
+                        } else {
+                            console.log(`Cannot remove from ${subject.name}: would drop below minimum (${minHours}h)`);
+                        }
                     }
                 }
                 
                 if (remainingToRemove > 0.01) {
-                    console.warn(`⚠️ Could not remove all ${Math.abs(diff).toFixed(2)} hours (${remainingToRemove.toFixed(2)} unremoved)`);
+                    console.warn(`⚠️ Could not remove all ${Math.abs(diff).toFixed(2)} hours while respecting minimum threshold (${remainingToRemove.toFixed(2)} unremoved)`);
                 }
             }
         }
 
         // Step 3: Filter by minimum hours and sort
+        // CRITICAL: P5 and P4 subjects are ALWAYS included (no minimum threshold)
         const minHours = this.config.minHoursToInclude || 0;
         const finalSubjects = subjectList
             .filter(subject => {
@@ -1067,9 +1077,17 @@ class StudySchedule {
                     console.log(`FINAL CHECK: Excluding ${subject.name} (priority=0)`);
                     return false;
                 }
+                
+                // CRITICAL: P5 and P4 subjects are ALWAYS included (mandatory)
+                if (subject.priority === 5 || subject.priority === 4) {
+                    console.log(`✓ MANDATORY: Including ${subject.name} (Priority ${subject.priority}) - always included`);
+                    return true;
+                }
+                
+                // For P1-P3 subjects, apply minimum hours threshold
                 const included = subject.hours >= minHours;
                 if (!included) {
-                    console.log(`Filtered out ${subject.name}: ${subject.hours.toFixed(2)}h < ${minHours}h`);
+                    console.log(`Filtered out ${subject.name} (P${subject.priority}): ${subject.hours.toFixed(2)}h < ${minHours}h minimum`);
                 }
                 return included;
             })
