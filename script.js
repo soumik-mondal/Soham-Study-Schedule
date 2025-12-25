@@ -308,13 +308,13 @@ class StudySchedule {
                             id="hours-${day.date}"
                             class="hour-input"
                             min="0" 
-                            max="24" 
+                            max="11" 
                             step="0.5" 
                             value="${totalHours}"
                             placeholder="0"
                             data-date="${day.date}"
                         >
-                        <span class="hour-label">hours</span>
+                        <span class="hour-label">hours (max 11)</span>
                     </div>
                 </div>
             `;
@@ -492,11 +492,21 @@ class StudySchedule {
 
     attachHourInputListeners() {
         document.querySelectorAll('.hour-input').forEach(input => {
-            input.addEventListener('input', () => {
+            input.addEventListener('input', (e) => {
+                // Enforce 11-hour maximum limit
+                if (parseFloat(e.target.value) > 11) {
+                    console.warn(`⚠️ Input capped at 11 hours (max daily limit)`);
+                    e.target.value = 11;
+                }
                 this.updateHoursSummary();
                 this.updateScheduleButtonState();
             });
-            input.addEventListener('change', () => {
+            input.addEventListener('change', (e) => {
+                // Enforce 11-hour maximum limit
+                if (parseFloat(e.target.value) > 11) {
+                    console.warn(`⚠️ Input capped at 11 hours (max daily limit)`);
+                    e.target.value = 11;
+                }
                 this.updateHoursSummary();
                 this.updateScheduleButtonState();
             });
@@ -530,8 +540,8 @@ class StudySchedule {
     }
 
     applyBulkHours(hours, weekendOnly = null) {
-        if (hours < 0 || hours > 24) {
-            alert('Please enter hours between 0 and 24');
+        if (hours < 0 || hours > 11) {
+            alert('⚠️ Please enter hours between 0 and 11 (maximum daily limit)');
             return;
         }
 
@@ -782,7 +792,13 @@ class StudySchedule {
         console.log('Updating hours from inputs...');
         this.schedule = this.schedule.map(day => {
             const input = document.getElementById(`hours-${day.date}`);
-            const totalHours = input ? parseFloat(input.value) || 0 : 0;
+            let totalHours = input ? parseFloat(input.value) || 0 : 0;
+            // Enforce 11-hour maximum daily limit
+            if (totalHours > 11) {
+                console.warn(`⚠️ Daily hours capped: ${totalHours} → 11 (max limit)`);
+                totalHours = 11;
+                if (input) input.value = 11;
+            }
             return { ...day, totalHours };
         });
     }
@@ -954,22 +970,40 @@ class StudySchedule {
         console.log('After rounding:', subjectList.map(s => `${s.name}:${s.hours}`));
 
         // Step 2: Calculate current total and adjust to match target
+        // NOTE: totalHours is capped at 11 by updateHoursFromInputs()
+        // So we should never exceed 11 hours per day when distributing
+        const MAX_DAILY_HOURS = 11;
+        
         let currentTotal = subjectList.reduce((sum, s) => sum + s.hours, 0);
         const diff = totalHours - currentTotal;
         
-        console.log(`Current total: ${currentTotal.toFixed(2)}, Target: ${totalHours.toFixed(2)}, Diff: ${diff.toFixed(2)}`);
+        console.log(`Current total: ${currentTotal.toFixed(2)}, Target: ${totalHours.toFixed(2)}, Max daily: ${MAX_DAILY_HOURS}, Diff: ${diff.toFixed(2)}`);
 
         // Adjust to match total (distribute small differences)
         if (Math.abs(diff) > 0.01) {
             if (diff > 0) {
-                // Need to add hours - add to highest priority subject with hours
+                // Need to add hours - distribute to subjects, respecting max daily limit
+                let remainingDiff = diff;
                 const sortedByPriority = [...subjectList].sort((a, b) => b.priority - a.priority);
+                
                 for (let subject of sortedByPriority) {
-                    if (subject.hours > 0) {
-                        subject.hours += diff;
-                        console.log(`Added ${diff.toFixed(2)} hours to ${subject.name}`);
-                        break;
+                    if (remainingDiff < 0.01) break;
+                    
+                    // Calculate how much we can add to this subject
+                    const headroom = MAX_DAILY_HOURS - subject.hours;
+                    const canAdd = Math.min(remainingDiff, headroom);
+                    
+                    if (canAdd > 0.01) {
+                        subject.hours += canAdd;
+                        remainingDiff -= canAdd;
+                        console.log(`Added ${canAdd.toFixed(2)} hours to ${subject.name} (now ${subject.hours.toFixed(2)}, headroom was ${headroom.toFixed(2)})`);
+                    } else {
+                        console.log(`Cannot add to ${subject.name}: no headroom (already at ${subject.hours.toFixed(2)} hrs)`);
                     }
+                }
+                
+                if (remainingDiff > 0.01) {
+                    console.warn(`⚠️ Could not distribute remaining ${remainingDiff.toFixed(2)} hours while respecting 11-hour daily limit`);
                 }
             } else {
                 // Need to remove hours - remove from lowest priority subject with hours
