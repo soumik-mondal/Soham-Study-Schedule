@@ -34,10 +34,13 @@ class StudySchedule {
     }
 
     loadData() {
+        console.log('=== LOADING DATA ===');
+        
         // Load schedule
         try {
             const savedSchedule = localStorage.getItem('sohamStudySchedule');
             this.schedule = savedSchedule ? JSON.parse(savedSchedule) : [];
+            console.log('Loaded schedule:', this.schedule);
         } catch (error) {
             console.error('Error loading schedule:', error);
             this.schedule = [];
@@ -48,8 +51,10 @@ class StudySchedule {
             const savedPriorities = localStorage.getItem('sohamSubjectPriorities');
             if (savedPriorities) {
                 this.subjectPriorities = JSON.parse(savedPriorities);
+                console.log('Loaded subject priorities:', this.subjectPriorities);
             } else {
                 this.subjectPriorities = this.getDefaultPriorities();
+                console.log('Using default priorities:', this.subjectPriorities);
             }
         } catch (error) {
             console.error('Error loading priorities:', error);
@@ -66,35 +71,26 @@ class StudySchedule {
                     ...this.getDefaultConfig(),
                     ...parsedConfig
                 };
+                console.log('Loaded config:', this.config);
             } else {
                 this.config = this.getDefaultConfig();
+                console.log('Using default config:', this.config);
             }
         } catch (error) {
             console.error('Error loading config:', error);
             this.config = this.getDefaultConfig();
         }
         
-        console.log('Loaded configuration:', this.config);
         this.debugPriorities();
     }
 
     debugPriorities() {
-        console.log('=== DEBUG: Current Subject Priorities ===');
+        console.log('=== CURRENT SUBJECT PRIORITIES ===');
         this.subjects.forEach(subject => {
-            const priority = this.getSubjectPriority(subject);
-            console.log(`${subject}: ${priority} (from subjectPriorities: ${this.subjectPriorities[subject]})`);
+            const priority = this.subjectPriorities[subject];
+            console.log(`${subject}: ${priority} (type: ${typeof priority})`);
         });
-        console.log('=== END DEBUG ===');
-    }
-
-    // New method to get subject priority with proper handling
-    getSubjectPriority(subject) {
-        // If priority is explicitly set (could be 0), return it
-        if (this.subjectPriorities[subject] !== undefined) {
-            return this.subjectPriorities[subject];
-        }
-        // Otherwise return default priority
-        return this.getDefaultPriorities()[subject] || 3;
+        console.log('=== END ===');
     }
 
     getDefaultPriorities() {
@@ -125,11 +121,12 @@ class StudySchedule {
             minHoursToInclude: 1.0,
             roundTo: 0.5,
             distributionMethod: 'priority',
-            includedPriorities: [1, 2, 3, 4, 5] // Ensure this is always defined
+            includedPriorities: [1, 2, 3, 4, 5]
         };
     }
 
     saveData() {
+        console.log('Saving data...');
         localStorage.setItem('sohamStudySchedule', JSON.stringify(this.schedule));
         localStorage.setItem('sohamSubjectPriorities', JSON.stringify(this.subjectPriorities));
         localStorage.setItem('sohamStudyConfig', JSON.stringify(this.config));
@@ -158,9 +155,14 @@ class StudySchedule {
         if (!container) return;
 
         container.innerHTML = this.subjects.map(subject => {
-            // Use the getSubjectPriority method to ensure we get the correct priority
-            const priority = this.getSubjectPriority(subject);
+            // Get the actual saved priority
+            const priority = this.subjectPriorities[subject] !== undefined 
+                ? this.subjectPriorities[subject] 
+                : this.getDefaultPriorities()[subject] || 3;
+            
             const subjectId = subject.replace(/[&\s]+/g, '-');
+            
+            console.log(`Rendering ${subject} with priority ${priority} (saved: ${this.subjectPriorities[subject]})`);
             
             return `
                 <div class="priority-item">
@@ -412,6 +414,7 @@ class StudySchedule {
         if (generateScheduleBtn) {
             generateScheduleBtn.addEventListener('click', (e) => {
                 e.preventDefault();
+                console.log('=== GENERATING SCHEDULE ===');
                 this.updateHoursFromInputs();
                 this.generateSchedule();
                 this.renderSchedule();
@@ -442,6 +445,8 @@ class StudySchedule {
                     const subject = e.target.dataset.subject;
                     const priority = parseInt(e.target.value);
                     
+                    console.log(`Priority changed for ${subject} to ${priority}`);
+                    
                     // Save the priority (including 0 for excluded)
                     this.subjectPriorities[subject] = priority;
                     this.saveData();
@@ -458,7 +463,7 @@ class StudySchedule {
                         }
                     }
                     
-                    console.log(`Priority changed for ${subject} to ${priority}`);
+                    // Debug
                     this.debugPriorities();
                     
                     // If schedule already exists, regenerate it with new priorities
@@ -741,30 +746,47 @@ class StudySchedule {
     }
 
     updateHoursFromInputs() {
+        console.log('Updating hours from inputs...');
         this.schedule = this.schedule.map(day => {
             const input = document.getElementById(`hours-${day.date}`);
             const totalHours = input ? parseFloat(input.value) || 0 : 0;
+            console.log(`Day ${day.date}: ${totalHours} hours`);
             return { ...day, totalHours };
         });
     }
 
     generateSchedule() {
+        console.log('=== GENERATING SCHEDULE FOR ALL DAYS ===');
+        this.debugPriorities();
+        
         this.schedule = this.schedule.map(day => {
+            console.log(`\n--- Processing day: ${day.date} (${day.totalHours} hours) ---`);
             if (day.totalHours <= 0) {
+                console.log('No hours, skipping...');
                 return { ...day, subjects: [] };
             }
             const distributedSubjects = this.distributeSubjects(day.totalHours);
+            console.log(`Final subjects for ${day.date}:`, distributedSubjects.map(s => `${s.name} (P${s.priority}): ${s.hours}h`));
             return { ...day, subjects: distributedSubjects };
         });
+        
+        console.log('=== SCHEDULE GENERATION COMPLETE ===');
     }
 
     distributeSubjects(totalHours) {
-        console.log('=== Starting subject distribution ===');
-        console.log('Total hours to distribute:', totalHours);
+        console.log(`\nDistributing ${totalHours} hours among subjects...`);
         
-        // Create subject list with priorities - Use getSubjectPriority to ensure correct priority
+        // Create subject list with priorities
         const subjectList = this.subjects.map(subject => {
-            const priority = this.getSubjectPriority(subject);
+            // Get priority from saved priorities
+            let priority = this.subjectPriorities[subject];
+            
+            // If not saved, use default
+            if (priority === undefined) {
+                priority = this.getDefaultPriorities()[subject] || 3;
+            }
+            
+            console.log(`  ${subject}: priority = ${priority} (from saved: ${this.subjectPriorities[subject]})`);
             
             return {
                 name: subject,
@@ -773,13 +795,12 @@ class StudySchedule {
             };
         });
 
-        // DEBUG: Log what we're working with
-        console.log('All subjects with priorities:', subjectList);
-
         // Ensure includedPriorities is an array
         const includedPriorities = Array.isArray(this.config.includedPriorities) 
             ? this.config.includedPriorities 
             : [1, 2, 3, 4, 5];
+        
+        console.log(`Included priorities: ${includedPriorities.join(', ')}`);
         
         // Filter subjects: 
         // 1. Exclude priority 0 (excluded by user)
@@ -789,16 +810,12 @@ class StudySchedule {
             const isIncludedPriority = includedPriorities.includes(subject.priority);
             const shouldInclude = !isExcluded && isIncludedPriority;
             
-            if (!shouldInclude) {
-                console.log(`Excluding ${subject.name}: priority=${subject.priority}, isExcluded=${isExcluded}, isIncludedPriority=${isIncludedPriority}`);
-            } else {
-                console.log(`Including ${subject.name}: priority=${subject.priority}`);
-            }
+            console.log(`  ${subject.name}: priority=${subject.priority}, isExcluded=${isExcluded}, isIncludedPriority=${isIncludedPriority}, shouldInclude=${shouldInclude}`);
             
             return shouldInclude;
         });
 
-        console.log('Filtered subjects after priority check:', filteredSubjects.map(s => `${s.name} (P${s.priority})`));
+        console.log(`Filtered subjects (${filteredSubjects.length}):`, filteredSubjects.map(s => s.name));
 
         if (filteredSubjects.length === 0) {
             console.log('No subjects to distribute after filtering');
@@ -806,25 +823,26 @@ class StudySchedule {
         }
 
         let remainingHours = totalHours;
+        console.log(`Starting with ${remainingHours} hours`);
 
         // Phase 1: Assign base hours based on configuration
-        console.log('Phase 1: Assigning base hours');
+        console.log('\nPhase 1: Assigning base hours');
         filteredSubjects.forEach(subject => {
             const base = this.config.baseHours[subject.priority] || 0;
-            console.log(`${subject.name} (P${subject.priority}): base=${base}h, remaining=${remainingHours}h`);
+            console.log(`  ${subject.name} (P${subject.priority}): base=${base}h, remaining=${remainingHours}h`);
             
             if (remainingHours >= base && base > 0) {
                 subject.hours = base;
                 remainingHours -= base;
-                console.log(`  Assigned ${base}h, new remaining=${remainingHours}h`);
+                console.log(`    Assigned ${base}h, new remaining=${remainingHours}h`);
             }
         });
 
-        console.log(`After base assignment: remaining hours=${remainingHours}`);
+        console.log(`After base assignment: ${remainingHours} hours remaining`);
 
         // Phase 2: Distribute remaining hours based on selected method
         if (remainingHours > 0) {
-            console.log(`Phase 2: Distributing ${remainingHours} remaining hours`);
+            console.log(`\nPhase 2: Distributing ${remainingHours} remaining hours using ${this.config.distributionMethod} method`);
             switch (this.config.distributionMethod) {
                 case 'priority':
                     this.distributeByPriority(filteredSubjects, remainingHours);
@@ -842,12 +860,13 @@ class StudySchedule {
 
         // Phase 3: Apply rounding and filtering
         const result = this.finalizeDistribution(filteredSubjects, totalHours);
-        console.log('Final distribution result:', result);
+        console.log('\nFinal distribution complete');
         return result;
     }
 
     distributeByPriority(subjectList, remainingHours) {
         const totalPriority = subjectList.reduce((sum, s) => sum + s.priority, 0);
+        console.log(`  Total priority: ${totalPriority}`);
         
         subjectList.forEach(subject => {
             if (remainingHours <= 0) return;
@@ -860,7 +879,7 @@ class StudySchedule {
             if (allocatedHours >= this.config.roundTo) {
                 subject.hours += allocatedHours;
                 remainingHours -= allocatedHours;
-                console.log(`  Distributed ${allocatedHours}h to ${subject.name}, remaining=${remainingHours}h`);
+                console.log(`    ${subject.name}: weight=${priorityWeight.toFixed(2)}, allocated=${allocatedHours}h, remaining=${remainingHours}h`);
             }
         });
     }
@@ -875,7 +894,7 @@ class StudySchedule {
             if (share >= this.config.roundTo) {
                 subject.hours += share;
                 remainingHours -= share;
-                console.log(`  Distributed ${share}h to ${subject.name}, remaining=${remainingHours}h`);
+                console.log(`    ${subject.name}: equal share=${share}h, remaining=${remainingHours}h`);
             }
         });
     }
@@ -893,37 +912,37 @@ class StudySchedule {
             if (remainingHours >= allocation) {
                 subject.hours += allocation;
                 remainingHours -= allocation;
-                console.log(`  Distributed ${allocation}h to ${subject.name}, remaining=${remainingHours}h`);
+                console.log(`    ${subject.name}: high-first allocation=${allocation}h, remaining=${remainingHours}h`);
             }
         }
     }
 
     finalizeDistribution(subjectList, totalHours) {
-        console.log('Phase 3: Finalizing distribution');
+        console.log('\nPhase 3: Finalizing distribution');
         
         // Apply rounding
         subjectList.forEach(subject => {
             const before = subject.hours;
             subject.hours = this.roundTo(subject.hours, this.config.roundTo);
             if (before !== subject.hours) {
-                console.log(`${subject.name}: ${before}h -> ${subject.hours}h (rounded to ${this.config.roundTo})`);
+                console.log(`  ${subject.name}: ${before}h -> ${subject.hours}h (rounded to ${this.config.roundTo})`);
             }
         });
 
         // Final adjustment to match total hours
         let finalTotal = subjectList.reduce((sum, s) => sum + s.hours, 0);
-        console.log(`Initial total: ${finalTotal}h, Target: ${totalHours}h`);
+        console.log(`  Initial total: ${finalTotal}h, Target: ${totalHours}h`);
         
         if (Math.abs(finalTotal - totalHours) > 0.1) {
             const diff = totalHours - finalTotal;
-            console.log(`Adjusting by ${diff}h to match target`);
+            console.log(`  Adjusting by ${diff}h to match target`);
             
             // Try to adjust a subject that already has hours
             const subjectToAdjust = subjectList.find(s => s.hours > 0);
             if (subjectToAdjust) {
                 const before = subjectToAdjust.hours;
                 subjectToAdjust.hours = this.roundTo(subjectToAdjust.hours + diff, this.config.roundTo);
-                console.log(`Adjusted ${subjectToAdjust.name}: ${before}h -> ${subjectToAdjust.hours}h`);
+                console.log(`    Adjusted ${subjectToAdjust.name}: ${before}h -> ${subjectToAdjust.hours}h`);
             }
         }
 
@@ -932,8 +951,8 @@ class StudySchedule {
         const result = subjectList
             .filter(subject => {
                 const passes = subject.hours >= minHours;
-                if (!passes) {
-                    console.log(`Excluding ${subject.name}: ${subject.hours}h < ${minHours}h (min to include)`);
+                if (!passes && subject.hours > 0) {
+                    console.log(`  Excluding ${subject.name}: ${subject.hours}h < ${minHours}h (min to include)`);
                 }
                 return passes;
             })
@@ -944,7 +963,7 @@ class StudySchedule {
             }))
             .sort((a, b) => b.priority - a.priority || b.hours - a.hours);
         
-        console.log(`Final subjects (>=${minHours}h):`, result);
+        console.log(`  Final subjects (>=${minHours}h):`, result.map(s => `${s.name}: ${s.hours}h`));
         return result;
     }
 
