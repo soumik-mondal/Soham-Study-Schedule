@@ -73,6 +73,17 @@ class StudySchedule {
             console.error('Error loading config:', error);
             this.config = this.getDefaultConfig();
         }
+        
+        console.log('Loaded configuration:', this.config);
+        this.debugPriorities();
+    }
+
+    debugPriorities() {
+        console.log('=== DEBUG: Current Subject Priorities ===');
+        this.subjects.forEach(subject => {
+            console.log(`${subject}: ${this.subjectPriorities[subject]}`);
+        });
+        console.log('=== END DEBUG ===');
     }
 
     getDefaultPriorities() {
@@ -418,9 +429,12 @@ class StudySchedule {
                 input.addEventListener('change', (e) => {
                     const subject = e.target.dataset.subject;
                     const priority = parseInt(e.target.value);
+                    
+                    // Save the priority (including 0 for excluded)
                     this.subjectPriorities[subject] = priority;
                     this.saveData();
                     
+                    // Update the badge
                     const badge = e.target.previousElementSibling.querySelector('.priority-badge');
                     if (badge) {
                         if (priority === 0) {
@@ -430,6 +444,14 @@ class StudySchedule {
                             badge.className = `priority-badge priority-${priority}`;
                             badge.textContent = `P${priority}`;
                         }
+                    }
+                    
+                    // If schedule already exists, regenerate it with new priorities
+                    if (this.schedule.length > 0) {
+                        console.log(`Priority changed for ${subject} to ${priority}, regenerating schedule...`);
+                        this.generateSchedule();
+                        this.renderSchedule();
+                        this.renderSummary();
                     }
                 });
             }
@@ -721,42 +743,69 @@ class StudySchedule {
     }
 
     distributeSubjects(totalHours) {
-        // Create subject list with priorities
-        const subjectList = this.subjects.map(subject => ({
-            name: subject,
-            priority: this.subjectPriorities[subject] || 3,
-            hours: 0
-        }));
-
-        // Ensure includedPriorities is an array
-        const includedPriorities = Array.isArray(this.config.includedPriorities) 
-            ? this.config.includedPriorities 
-            : [1, 2, 3, 4, 5];
+        console.log('=== Starting subject distribution ===');
+        console.log('Total hours to distribute:', totalHours);
         
-        // Filter subjects: exclude priority 0 and priorities not in includedPriorities
-        const filteredSubjects = subjectList.filter(subject => 
-            subject.priority !== 0 && includedPriorities.includes(subject.priority)
-        );
+        // Create subject list with priorities - IMPORTANT: Handle priority 0 correctly
+        const subjectList = this.subjects.map(subject => {
+            // Get priority from saved priorities, default to 3 if not set
+            const priority = this.subjectPriorities[subject] !== undefined 
+                ? this.subjectPriorities[subject] 
+                : 3;
+            
+            return {
+                name: subject,
+                priority: priority,
+                hours: 0
+            };
+        });
+
+        // DEBUG: Log what we're working with
+        console.log('Subject priorities:', this.subjectPriorities);
+        console.log('Subject list for distribution:', subjectList);
+
+        // Filter subjects: 
+        // 1. Exclude priority 0 (excluded by user)
+        // 2. Only include priorities in includedPriorities config
+        const filteredSubjects = subjectList.filter(subject => {
+            const isExcluded = subject.priority === 0;
+            const isIncludedPriority = this.config.includedPriorities.includes(subject.priority);
+            const shouldInclude = !isExcluded && isIncludedPriority;
+            
+            if (!shouldInclude) {
+                console.log(`Excluding ${subject.name}: priority=${subject.priority}, isExcluded=${isExcluded}, isIncludedPriority=${isIncludedPriority}`);
+            }
+            
+            return shouldInclude;
+        });
+
+        console.log('Filtered subjects after priority check:', filteredSubjects);
 
         if (filteredSubjects.length === 0) {
+            console.log('No subjects to distribute after filtering');
             return [];
         }
 
         let remainingHours = totalHours;
 
-        // Phase 1: Assign base hours based on configuration (only for included priorities)
+        // Phase 1: Assign base hours based on configuration
+        console.log('Phase 1: Assigning base hours');
         filteredSubjects.forEach(subject => {
-            const base = this.config.baseHours && this.config.baseHours[subject.priority] 
-                ? this.config.baseHours[subject.priority] 
-                : 0;
+            const base = this.config.baseHours[subject.priority] || 0;
+            console.log(`${subject.name} (P${subject.priority}): base=${base}h, remaining=${remainingHours}h`);
+            
             if (remainingHours >= base && base > 0) {
                 subject.hours = base;
                 remainingHours -= base;
+                console.log(`  Assigned ${base}h, new remaining=${remainingHours}h`);
             }
         });
 
+        console.log(`After base assignment: remaining hours=${remainingHours}`);
+
         // Phase 2: Distribute remaining hours based on selected method
         if (remainingHours > 0) {
+            console.log(`Phase 2: Distributing ${remainingHours} remaining hours`);
             switch (this.config.distributionMethod) {
                 case 'priority':
                     this.distributeByPriority(filteredSubjects, remainingHours);
@@ -768,10 +817,14 @@ class StudySchedule {
                     this.distributeHighFirst(filteredSubjects, remainingHours);
                     break;
             }
+        } else {
+            console.log('No remaining hours to distribute');
         }
 
         // Phase 3: Apply rounding and filtering
-        return this.finalizeDistribution(filteredSubjects, totalHours);
+        const result = this.finalizeDistribution(filteredSubjects, totalHours);
+        console.log('Final distribution result:', result);
+        return result;
     }
 
     distributeByPriority(subjectList, remainingHours) {
@@ -824,30 +877,51 @@ class StudySchedule {
     }
 
     finalizeDistribution(subjectList, totalHours) {
+        console.log('Phase 3: Finalizing distribution');
+        
         // Apply rounding
         subjectList.forEach(subject => {
+            const before = subject.hours;
             subject.hours = this.roundTo(subject.hours, this.config.roundTo);
+            console.log(`${subject.name}: ${before}h -> ${subject.hours}h (rounded to ${this.config.roundTo})`);
         });
 
         // Final adjustment to match total hours
         let finalTotal = subjectList.reduce((sum, s) => sum + s.hours, 0);
+        console.log(`Initial total: ${finalTotal}h, Target: ${totalHours}h`);
+        
         if (Math.abs(finalTotal - totalHours) > 0.1) {
             const diff = totalHours - finalTotal;
+            console.log(`Adjusting by ${diff}h to match target`);
+            
+            // Try to adjust a subject that already has hours
             const subjectToAdjust = subjectList.find(s => s.hours > 0);
             if (subjectToAdjust) {
+                const before = subjectToAdjust.hours;
                 subjectToAdjust.hours = this.roundTo(subjectToAdjust.hours + diff, this.config.roundTo);
+                console.log(`Adjusted ${subjectToAdjust.name}: ${before}h -> ${subjectToAdjust.hours}h`);
             }
         }
 
-        // Filter and return
-        return subjectList
-            .filter(subject => subject.hours >= this.config.minHoursToInclude)
+        // Filter and return - only include subjects with hours >= minHoursToInclude
+        const minHours = this.config.minHoursToInclude;
+        const result = subjectList
+            .filter(subject => {
+                const passes = subject.hours >= minHours;
+                if (!passes) {
+                    console.log(`Excluding ${subject.name}: ${subject.hours}h < ${minHours}h (min to include)`);
+                }
+                return passes;
+            })
             .map(subject => ({
                 name: subject.name,
                 priority: subject.priority,
                 hours: subject.hours
             }))
             .sort((a, b) => b.priority - a.priority || b.hours - a.hours);
+        
+        console.log(`Final subjects (>=${minHours}h):`, result);
+        return result;
     }
 
     roundTo(num, step) {
