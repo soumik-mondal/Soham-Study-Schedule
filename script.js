@@ -832,13 +832,14 @@ class StudySchedule {
         const totalDays = this.schedule.length;
         const p5Subjects = subjectsByPriority[5]; // Math, Physics, Chemistry
         const p4Subjects = subjectsByPriority[4]; // Biology, AI & Robotics
-        const p3Subjects = subjectsByPriority[3]; // and so on...
+        const p3Subjects = subjectsByPriority[3];
         const p2Subjects = subjectsByPriority[2];
         const p1Subjects = subjectsByPriority[1];
         
         // Initialize rotation trackers
         let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0, p1Index = 0;
         let daysSinceP3 = 0, daysSinceP2 = 0;
+        const MAX_SUBJECTS_PER_DAY = 4;
         
         // Generate schedule for each day
         this.schedule = this.schedule.map((day, dayIndex) => {
@@ -853,7 +854,7 @@ class StudySchedule {
             let remainingHours = day.totalHours;
             
             // P5: Include one P5 subject (rotate through them)
-            if (p5Subjects.length > 0) {
+            if (p5Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
                 const p5Subject = p5Subjects[p5Index % p5Subjects.length];
                 const p5Hours = this.config.baseHours[5] || 2.5;
                 if (remainingHours >= p5Hours) {
@@ -864,8 +865,8 @@ class StudySchedule {
                 }
             }
             
-            // P4: Include one P4 subject (alternate with P5 if possible)
-            if (p4Subjects.length > 0) {
+            // P4: Include one P4 subject (rotate)
+            if (p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
                 const p4Subject = p4Subjects[p4Index % p4Subjects.length];
                 const p4Hours = this.config.baseHours[4] || 2;
                 if (remainingHours >= p4Hours) {
@@ -878,7 +879,7 @@ class StudySchedule {
             
             // P3: Include if available and haven't included recently
             daysSinceP3++;
-            if (p3Subjects.length > 0 && daysSinceP3 >= 5) {
+            if (p3Subjects.length > 0 && daysSinceP3 >= 5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
                 const p3Subject = p3Subjects[p3Index % p3Subjects.length];
                 const p3Hours = Math.min(this.config.baseHours[3] || 1.5, remainingHours);
                 if (p3Hours > 0.5) {
@@ -890,9 +891,9 @@ class StudySchedule {
                 }
             }
             
-            // P2: Include if available and haven't included recently
+            // P2: Include if available and haven't included recently - PRIORITY
             daysSinceP2++;
-            if (p2Subjects.length > 0 && daysSinceP2 >= 5) {
+            if (p2Subjects.length > 0 && daysSinceP2 >= 5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
                 const p2Subject = p2Subjects[p2Index % p2Subjects.length];
                 const p2Hours = Math.min(this.config.baseHours[2] || 1, remainingHours);
                 if (p2Hours > 0.5) {
@@ -904,8 +905,8 @@ class StudySchedule {
                 }
             }
             
-            // Fill remaining hours with P1 if available
-            if (p1Subjects.length > 0 && remainingHours > 0.5) {
+            // Fill remaining hours with P1 if available and haven't hit subject limit
+            if (p1Subjects.length > 0 && remainingHours > 0.5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
                 const p1Subject = p1Subjects[p1Index % p1Subjects.length];
                 const p1Hours = Math.min(remainingHours, this.config.baseHours[1] || 1);
                 if (p1Hours > 0) {
@@ -915,7 +916,7 @@ class StudySchedule {
                 }
             }
             
-            console.log(`Day total: ${(day.totalHours - remainingHours).toFixed(1)}h`);
+            console.log(`Day total: ${(day.totalHours - remainingHours).toFixed(1)}h, Subjects: ${subjectsForDay.length}`);
             return { ...day, subjects: subjectsForDay };
         });
     }
