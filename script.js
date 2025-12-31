@@ -899,7 +899,7 @@ class StudySchedule {
                 }
             }
             
-            // Phase 3: Add P3 if available and due (at least every 3 days each)
+            // Phase 3: Add P3 if due
             if (hoursUsed < maxHours && p3Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
                 for (let idx = 0; idx < p3Subjects.length && subjectsForDay.length < MAX_SUBJECTS; idx++) {
                     if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
@@ -910,12 +910,13 @@ class StudySchedule {
                             hoursUsed += hours;
                             daysSinceP3[idx] = 0;
                             console.log(`  P3: ${subject} (${hours}h, total: ${hoursUsed}h)`);
+                            break;
                         }
                     }
                 }
             }
             
-            // Phase 4: Add P2 if available and due (at least every 5 days each)
+            // Phase 4: Add P2 if due (only if P3 slot wasn't filled)
             if (hoursUsed < maxHours && p2Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
                 for (let idx = 0; idx < p2Subjects.length && subjectsForDay.length < MAX_SUBJECTS; idx++) {
                     if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
@@ -926,83 +927,10 @@ class StudySchedule {
                             hoursUsed += hours;
                             daysSinceP2[idx] = 0;
                             console.log(`  P2: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-                        }
-                    }
-                }
-            }
-            
-            // Phase 5: Add extra P5 if room
-            if (hoursUsed < maxHours && p5Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                let subject = null;
-                for (let j = 0; j < p5Subjects.length; j++) {
-                    const candidate = p5Subjects[(p5Index + j) % p5Subjects.length];
-                    if (!subjectsForDay.some(s => s.name === candidate)) {
-                        subject = candidate;
-                        p5Index = (p5Index + j + 1) % p5Subjects.length;
-                        break;
-                    }
-                }
-                if (subject) {
-                    const hours = Math.min(p5Hours, maxHours - hoursUsed);
-                    subjectsForDay.push({ name: subject, priority: 5, hours });
-                    hoursUsed += hours;
-                    console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-                }
-            }
-            
-            // Phase 6: Fill remaining hours with 0.5h chunks
-            while (hoursUsed < maxHours - 0.01 && subjectsForDay.length < MAX_SUBJECTS) {
-                const remaining = maxHours - hoursUsed;
-                let added = false;
-                
-                // Try P3 first
-                if (p3Subjects.length > 0 && remaining >= 0.5) {
-                    for (let j = 0; j < p3Subjects.length; j++) {
-                        const subject = p3Subjects[(p3Index + j) % p3Subjects.length];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            subjectsForDay.push({ name: subject, priority: 3, hours: 0.5 });
-                            hoursUsed += 0.5;
-                            p3Index = (p3Index + j + 1) % p3Subjects.length;
-                            daysSinceP3[p3Subjects.indexOf(subject)] = 0;
-                            console.log(`  P3+: ${subject} (0.5h, total: ${hoursUsed}h)`);
-                            added = true;
                             break;
                         }
                     }
                 }
-                
-                // Try P2
-                if (!added && p2Subjects.length > 0 && remaining >= 0.5) {
-                    for (let j = 0; j < p2Subjects.length; j++) {
-                        const subject = p2Subjects[(p2Index + j) % p2Subjects.length];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            subjectsForDay.push({ name: subject, priority: 2, hours: 0.5 });
-                            hoursUsed += 0.5;
-                            p2Index = (p2Index + j + 1) % p2Subjects.length;
-                            daysSinceP2[p2Subjects.indexOf(subject)] = 0;
-                            console.log(`  P2+: ${subject} (0.5h, total: ${hoursUsed}h)`);
-                            added = true;
-                            break;
-                        }
-                    }
-                }
-                
-                // Try P5/P4 as last resort
-                if (!added && p5Subjects.length > 0 && remaining >= 0.5) {
-                    for (let j = 0; j < p5Subjects.length; j++) {
-                        const subject = p5Subjects[(p5Index + j) % p5Subjects.length];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            subjectsForDay.push({ name: subject, priority: 5, hours: 0.5 });
-                            hoursUsed += 0.5;
-                            p5Index = (p5Index + j + 1) % p5Subjects.length;
-                            console.log(`  P5+: ${subject} (0.5h, total: ${hoursUsed}h)`);
-                            added = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!added) break;
             }
             
             console.log(`✓ Day ${dayIndex + 1}: ${hoursUsed}h used, ${subjectsForDay.length} subjects`);
