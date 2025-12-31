@@ -96,21 +96,6 @@ self.addEventListener('fetch', event => {
             })
     );
 });
-                        
-                        return response;
-                    })
-                    .catch(error => {
-                        console.log('Service Worker: Network fetch failed:', error);
-                        // Return cached version if available, or offline page
-                        return caches.match(event.request)
-                            .then(response => response || new Response('Offline - this page is not cached'));
-                    });
-            })
-            .catch(error => {
-                console.log('Service Worker: Cache match error:', error);
-            })
-    );
-});
 
 // Clean up old caches
 self.addEventListener('activate', event => {
