@@ -807,21 +807,122 @@ class StudySchedule {
         console.log('=== STARTING SCHEDULE GENERATION ===');
         console.log('Subject priorities:', this.subjectPriorities);
         
-        this.schedule = this.schedule.map(day => {
-            console.log(`\nProcessing day: ${day.date} (${day.totalHours} hours)`);
-            if (day.totalHours <= 0) {
-                console.log('No hours, skipping...');
-                return { ...day, subjects: [] };
-            }
-            const distributedSubjects = this.distributeSubjects(day.totalHours);
-            console.log(`Subjects for ${day.date}:`, distributedSubjects);
-            return { ...day, subjects: distributedSubjects };
-        });
+        // NEW: Schedule-aware rotation logic
+        this.createRotatingSchedule();
         
         console.log('=== SCHEDULE GENERATION COMPLETE ===');
     }
 
+    createRotatingSchedule() {
+        console.log('\n--- CREATING ROTATING SCHEDULE ---');
+        
+        // Get all non-excluded subjects grouped by priority
+        const subjectsByPriority = {
+            5: [], 4: [], 3: [], 2: [], 1: []
+        };
+        
+        Object.entries(this.subjectPriorities).forEach(([subject, priority]) => {
+            if (priority > 0 && priority <= 5) {
+                subjectsByPriority[priority].push(subject);
+            }
+        });
+        
+        console.log('Subjects by priority:', subjectsByPriority);
+        
+        const totalDays = this.schedule.length;
+        const p5Subjects = subjectsByPriority[5]; // Math, Physics, Chemistry
+        const p4Subjects = subjectsByPriority[4]; // Biology, AI & Robotics
+        const p3Subjects = subjectsByPriority[3]; // and so on...
+        const p2Subjects = subjectsByPriority[2];
+        const p1Subjects = subjectsByPriority[1];
+        
+        // Initialize rotation trackers
+        let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0, p1Index = 0;
+        let daysSinceP3 = 0, daysSinceP2 = 0;
+        
+        // Generate schedule for each day
+        this.schedule = this.schedule.map((day, dayIndex) => {
+            console.log(`\nDay ${dayIndex + 1}: ${day.date} (${day.totalHours} hours)`);
+            
+            if (day.totalHours <= 0) {
+                console.log('No hours, skipping...');
+                return { ...day, subjects: [] };
+            }
+            
+            const subjectsForDay = [];
+            let remainingHours = day.totalHours;
+            
+            // P5: Include one P5 subject (rotate through them)
+            if (p5Subjects.length > 0) {
+                const p5Subject = p5Subjects[p5Index % p5Subjects.length];
+                const p5Hours = this.config.baseHours[5] || 2.5;
+                if (remainingHours >= p5Hours) {
+                    subjectsForDay.push({ name: p5Subject, priority: 5, hours: p5Hours });
+                    remainingHours -= p5Hours;
+                    console.log(`  P5 (rotating): ${p5Subject} → ${p5Hours}h`);
+                    p5Index++;
+                }
+            }
+            
+            // P4: Include one P4 subject (alternate with P5 if possible)
+            if (p4Subjects.length > 0) {
+                const p4Subject = p4Subjects[p4Index % p4Subjects.length];
+                const p4Hours = this.config.baseHours[4] || 2;
+                if (remainingHours >= p4Hours) {
+                    subjectsForDay.push({ name: p4Subject, priority: 4, hours: p4Hours });
+                    remainingHours -= p4Hours;
+                    console.log(`  P4 (rotating): ${p4Subject} → ${p4Hours}h`);
+                    p4Index++;
+                }
+            }
+            
+            // P3: Include if available and haven't included recently
+            daysSinceP3++;
+            if (p3Subjects.length > 0 && daysSinceP3 >= 5) {
+                const p3Subject = p3Subjects[p3Index % p3Subjects.length];
+                const p3Hours = Math.min(this.config.baseHours[3] || 1.5, remainingHours);
+                if (p3Hours > 0.5) {
+                    subjectsForDay.push({ name: p3Subject, priority: 3, hours: p3Hours });
+                    remainingHours -= p3Hours;
+                    daysSinceP3 = 0;
+                    console.log(`  P3 (periodic): ${p3Subject} → ${p3Hours.toFixed(1)}h`);
+                    p3Index++;
+                }
+            }
+            
+            // P2: Include if available and haven't included recently
+            daysSinceP2++;
+            if (p2Subjects.length > 0 && daysSinceP2 >= 5) {
+                const p2Subject = p2Subjects[p2Index % p2Subjects.length];
+                const p2Hours = Math.min(this.config.baseHours[2] || 1, remainingHours);
+                if (p2Hours > 0.5) {
+                    subjectsForDay.push({ name: p2Subject, priority: 2, hours: p2Hours });
+                    remainingHours -= p2Hours;
+                    daysSinceP2 = 0;
+                    console.log(`  P2 (periodic): ${p2Subject} → ${p2Hours.toFixed(1)}h`);
+                    p2Index++;
+                }
+            }
+            
+            // Fill remaining hours with P1 if available
+            if (p1Subjects.length > 0 && remainingHours > 0.5) {
+                const p1Subject = p1Subjects[p1Index % p1Subjects.length];
+                const p1Hours = Math.min(remainingHours, this.config.baseHours[1] || 1);
+                if (p1Hours > 0) {
+                    subjectsForDay.push({ name: p1Subject, priority: 1, hours: p1Hours });
+                    console.log(`  P1: ${p1Subject} → ${p1Hours.toFixed(1)}h`);
+                    p1Index++;
+                }
+            }
+            
+            console.log(`Day total: ${(day.totalHours - remainingHours).toFixed(1)}h`);
+            return { ...day, subjects: subjectsForDay };
+        });
+    }
+
     distributeSubjects(totalHours) {
+        // This method is now superseded by createRotatingSchedule()
+        // Kept for backward compatibility
         console.log(`\nDistributing ${totalHours} hours...`);
         
         // Get included priorities
@@ -874,43 +975,40 @@ class StudySchedule {
         const sortedByPriority = [...filteredSubjects].sort((a, b) => b.priority - a.priority);
         let remainingHours = totalHours;
 
-        // Step 1: Assign base hours - but cap total to not exceed daily limit
-        console.log('\nStep 1: Assigning base hours (capped to daily limit)');
+        // Step 1: Assign base hours - Scale proportionally if needed, respecting config
+        console.log('\nStep 1: Assigning base hours (respecting config)');
         const MAX_DAILY_HOURS = 11;
         let totalBaseHours = 0;
-        const baseHoursAllocations = [];
         
+        // Calculate total base hours needed
         filteredSubjects.forEach(subject => {
             const base = this.config.baseHours[subject.priority] || 0;
-            if (base > 0) {
-                baseHoursAllocations.push({ subject: subject.name, base, priority: subject.priority });
-                totalBaseHours += base;
-            }
+            totalBaseHours += base;
         });
         
         console.log(`Total base hours (uncapped): ${totalBaseHours.toFixed(2)}`);
         
+        // Allocate base hours - scale if needed to fit within 11 hours
         if (totalBaseHours > MAX_DAILY_HOURS) {
-            // Base hours exceed limit - scale them down proportionally
             const scaleFactor = MAX_DAILY_HOURS / totalBaseHours;
-            console.log(`⚠️ Base hours exceed daily limit. Scaling down by factor: ${scaleFactor.toFixed(2)}`);
+            console.log(`⚠️ Base hours exceed limit. Scaling by factor: ${scaleFactor.toFixed(2)}`);
             
             filteredSubjects.forEach(subject => {
                 const base = this.config.baseHours[subject.priority] || 0;
                 if (base > 0) {
                     subject.hours = base * scaleFactor;
                     remainingHours -= subject.hours;
-                    console.log(`  ${subject.name}: base=${base} × ${scaleFactor.toFixed(2)} = ${subject.hours.toFixed(2)}, remaining=${remainingHours.toFixed(2)}`);
+                    console.log(`  ${subject.name} (P${subject.priority}): ${base}h × ${scaleFactor.toFixed(2)} = ${subject.hours.toFixed(2)}h`);
                 }
             });
         } else {
-            // Base hours are within limit - assign normally
+            // Base hours fit - assign normally
             filteredSubjects.forEach(subject => {
                 const base = this.config.baseHours[subject.priority] || 0;
                 if (base > 0) {
                     subject.hours = base;
                     remainingHours -= base;
-                    console.log(`  ${subject.name}: base=${base}, remaining=${remainingHours.toFixed(2)}`);
+                    console.log(`  ${subject.name} (P${subject.priority}): ${base}h`);
                 }
             });
         }
