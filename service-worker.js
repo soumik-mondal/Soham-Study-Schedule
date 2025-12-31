@@ -11,15 +11,14 @@ const ESSENTIAL_ASSETS = [
 self.addEventListener('install', event => {
     console.log('Service Worker: Installing v4 (cache busted)...');
     
-    // Delete all old caches
     event.waitUntil(
         caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    console.log('Service Worker: Deleting old cache:', cacheName);
-                    return caches.delete(cacheName);
-                })
-            );
+            // Delete all old caches
+            const deletePromises = cacheNames.map(cacheName => {
+                console.log('Service Worker: Deleting old cache:', cacheName);
+                return caches.delete(cacheName);
+            });
+            return Promise.all(deletePromises);
         }).then(() => {
             // Now cache new assets
             return caches.open(CACHE_NAME)
