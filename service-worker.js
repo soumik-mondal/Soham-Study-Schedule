@@ -46,33 +46,56 @@ self.addEventListener('fetch', event => {
         return;
     }
     
-    console.log('Service Worker: Fetching', event.request.url);
+    const url = event.request.url;
     
+    // For script.js and other dynamic files, ALWAYS fetch from network
+    if (url.includes('script.js') || url.includes('style.css') || url.includes('index.html')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    console.log('Service Worker: Fetching (network) from', url);
+                    return response;
+                })
+                .catch(() => {
+                    console.log('Service Worker: Failed to fetch', url);
+                    return new Response('Network error', { status: 503 });
+                })
+        );
+        return;
+    }
+    
+    // For other assets, use cache-first strategy
     event.respondWith(
         caches.match(event.request)
             .then(response => {
-                // Return cached response if found
                 if (response) {
-                    console.log('Service Worker: Serving from cache:', event.request.url);
+                    console.log('Service Worker: Serving from cache:', url);
                     return response;
                 }
                 
-                // Otherwise try to fetch from network
                 return fetch(event.request)
                     .then(response => {
-                        // Don't cache non-successful responses
+                        console.log('Service Worker: Fetching', url);
+                        
                         if (!response || response.status !== 200 || response.type === 'error') {
                             return response;
                         }
                         
-                        // Clone the response
                         const responseToCache = response.clone();
-                        
-                        // Cache successful responses for future use
                         caches.open(CACHE_NAME)
                             .then(cache => {
                                 cache.put(event.request, responseToCache);
                             });
+                        
+                        return response;
+                    })
+                    .catch(() => {
+                        console.log('Service Worker: Failed to fetch', url);
+                        return new Response('Network error', { status: 503 });
+                    });
+            })
+    );
+});
                         
                         return response;
                     })
