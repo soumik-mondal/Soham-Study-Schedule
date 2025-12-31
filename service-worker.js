@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soham-study-schedule-v3-' + Date.now();
+const CACHE_NAME = 'soham-study-schedule-v4-' + Date.now();
 const ESSENTIAL_ASSETS = [
     './',
     './index.html',
@@ -9,21 +9,31 @@ const ESSENTIAL_ASSETS = [
 
 // Install service worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing v3 (cache busted)...');
+    console.log('Service Worker: Installing v4 (cache busted)...');
+    
+    // Delete all old caches
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Service Worker: Caching essential assets');
-                    ESSENTIAL_ASSETS.map(asset => {
-                        return cache.add(asset).catch(err => {
-                            console.log(`Service Worker: Could not cache ${asset}:`, err);
-                        });
-                    })
-                );
-            })
-            .catch(err => {
-                console.error('Service Worker: Cache open error:', err);
-            })
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    console.log('Service Worker: Deleting old cache:', cacheName);
+                    return caches.delete(cacheName);
+                })
+            );
+        }).then(() => {
+            // Now cache new assets
+            return caches.open(CACHE_NAME)
+                .then(cache => {
+                    console.log('Service Worker: Caching essential assets');
+                    return Promise.all(
+                        ESSENTIAL_ASSETS.map(asset => {
+                            return cache.add(asset).catch(err => {
+                                console.log(`Service Worker: Could not cache ${asset}:`, err);
+                            });
+                        })
+                    );
+                });
+        })
     );
     
     // Force immediate activation

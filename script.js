@@ -873,8 +873,8 @@ class StudySchedule {
                 
                 if (!subject) break;
                 
-                // Allocate 2h to each P5 to leave room for P4 and P3/P2
-                const hours = 2;
+                // Allocate 2.5h to each P5
+                const hours = 2.5;
                 subjectsForDay.push({ name: subject, priority: 5, hours });
                 hoursUsed += hours;
                 console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
@@ -893,49 +893,69 @@ class StudySchedule {
                 }
                 
                 if (subject) {
-                    // Allocate 1.5h to P4
-                    const hours = 1.5;
+                    // Allocate 2h to P4
+                    const hours = 2;
                     subjectsForDay.push({ name: subject, priority: 4, hours });
                     hoursUsed += hours;
                     console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
                 }
             }
             
-            // Phase 3: Add P3 if due
-            if (hoursUsed < maxHours && p3Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                for (let idx = 0; idx < p3Subjects.length && subjectsForDay.length < MAX_SUBJECTS; idx++) {
-                    if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
-                        const subject = p3Subjects[idx];
-                        if (!subjectsForDay.some(s => s.name === subject) && hoursUsed < maxHours) {
-                            // Use remaining hours for P3, minimum 1h
-                            const remaining = maxHours - hoursUsed;
-                            const hours = Math.max(1, remaining);
-                            subjectsForDay.push({ name: subject, priority: 3, hours });
-                            hoursUsed += hours;
-                            daysSinceP3[idx] = 0;
-                            console.log(`  P3: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-                            break;
+            // Phase 3: Add P3 or P2 (ALWAYS, to guarantee at least one per day)
+            if (hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS) {
+                // Determine which to pick based on days since last appearance
+                let selectedSubject = null;
+                let selectedPriority = 0;
+                
+                // Check if any P3 is due
+                if (p3Subjects.length > 0) {
+                    for (let idx = 0; idx < p3Subjects.length; idx++) {
+                        if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
+                            const subject = p3Subjects[idx];
+                            if (!subjectsForDay.some(s => s.name === subject)) {
+                                selectedSubject = subject;
+                                selectedPriority = 3;
+                                daysSinceP3[idx] = 0;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            
-            // Phase 4: Add P2 if due (only if P3 slot wasn't filled)
-            if (hoursUsed < maxHours && p2Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                for (let idx = 0; idx < p2Subjects.length && subjectsForDay.length < MAX_SUBJECTS; idx++) {
-                    if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
-                        const subject = p2Subjects[idx];
-                        if (!subjectsForDay.some(s => s.name === subject) && hoursUsed < maxHours) {
-                            // Use remaining hours for P2, minimum 1h
-                            const remaining = maxHours - hoursUsed;
-                            const hours = Math.max(1, remaining);
-                            subjectsForDay.push({ name: subject, priority: 2, hours });
-                            hoursUsed += hours;
-                            daysSinceP2[idx] = 0;
-                            console.log(`  P2: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-                            break;
+                
+                // If no P3 due, check P2
+                if (!selectedSubject && p2Subjects.length > 0) {
+                    for (let idx = 0; idx < p2Subjects.length; idx++) {
+                        if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
+                            const subject = p2Subjects[idx];
+                            if (!subjectsForDay.some(s => s.name === subject)) {
+                                selectedSubject = subject;
+                                selectedPriority = 2;
+                                daysSinceP2[idx] = 0;
+                                break;
+                            }
                         }
                     }
+                }
+                
+                // If still nothing, force one from P3 or P2
+                if (!selectedSubject && p3Subjects.length > 0) {
+                    selectedSubject = p3Subjects[p3Index % p3Subjects.length];
+                    selectedPriority = 3;
+                    daysSinceP3[p3Index % p3Subjects.length] = 0;
+                    p3Index++;
+                } else if (!selectedSubject && p2Subjects.length > 0) {
+                    selectedSubject = p2Subjects[p2Index % p2Subjects.length];
+                    selectedPriority = 2;
+                    daysSinceP2[p2Index % p2Subjects.length] = 0;
+                    p2Index++;
+                }
+                
+                // Allocate remaining hours to P3/P2
+                if (selectedSubject) {
+                    const remaining = maxHours - hoursUsed;
+                    subjectsForDay.push({ name: selectedSubject, priority: selectedPriority, hours: remaining });
+                    hoursUsed = maxHours;
+                    console.log(`  P${selectedPriority}: ${selectedSubject} (${remaining}h, total: ${hoursUsed}h)`);
                 }
             }
             
