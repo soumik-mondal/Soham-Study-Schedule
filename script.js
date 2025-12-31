@@ -828,10 +828,10 @@ class StudySchedule {
         const p3Subjects = subjectsByPriority[3];
         const p2Subjects = subjectsByPriority[2];
         
-        const p5Hours = this.config.baseHours[5] || 2.5;
-        const p4Hours = this.config.baseHours[4] || 2.0;
-        const p3Hours = this.config.baseHours[3] || 1.5;
-        const p2Hours = this.config.baseHours[2] || 1.0;
+        const p5Hours = 3;    // Increased from 2.5 to 3
+        const p4Hours = 2.5;  // Increased from 2 to 2.5
+        const p3Hours = 1.5;
+        const p2Hours = 1.0;
         
         let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0;
         let daysSinceP3 = [];
@@ -856,6 +856,10 @@ class StudySchedule {
             daysSinceP3 = daysSinceP3.map(d => d + 1);
             daysSinceP2 = daysSinceP2.map(d => d + 1);
             
+            // Determine hours based on daily availability: 9h days = 2.5/2/2, 11h+ days = 3/2.5/2.5
+            const dailyP5Hours = maxHours >= 11 ? 3 : 2.5;      // 3h for 11h+ days, 2.5h for 9h days
+            const dailyP4Hours = maxHours >= 11 ? 2.5 : 2;      // 2.5h for 11h+ days, 2h for 9h days
+            
             // Phase 1: Add 2 P5 subjects
             const p5StartCount = 2;
             for (let i = 0; i < p5StartCount && p5Subjects.length > 0; i++) {
@@ -873,8 +877,8 @@ class StudySchedule {
                 
                 if (!subject) break;
                 
-                // Allocate 2.5h to each P5
-                const hours = 2.5;
+                // Allocate 3h to each P5
+                const hours = p5Hours;
                 subjectsForDay.push({ name: subject, priority: 5, hours });
                 hoursUsed += hours;
                 console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
@@ -893,8 +897,8 @@ class StudySchedule {
                 }
                 
                 if (subject) {
-                    // Allocate 2h to P4
-                    const hours = 2;
+                    // Allocate P4 hours based on daily total
+                    const hours = dailyP4Hours;
                     subjectsForDay.push({ name: subject, priority: 4, hours });
                     hoursUsed += hours;
                     console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
@@ -903,11 +907,11 @@ class StudySchedule {
             
             // Phase 3: Add P3 or P2 (ALWAYS, to guarantee at least one per day)
             if (hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS) {
-                // Determine which to pick based on days since last appearance
                 let selectedSubject = null;
                 let selectedPriority = 0;
+                let selectedIdx = -1;
                 
-                // Check if any P3 is due
+                // First priority: Check if any P3 is due (every 3 days)
                 if (p3Subjects.length > 0) {
                     for (let idx = 0; idx < p3Subjects.length; idx++) {
                         if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
@@ -915,14 +919,14 @@ class StudySchedule {
                             if (!subjectsForDay.some(s => s.name === subject)) {
                                 selectedSubject = subject;
                                 selectedPriority = 3;
-                                daysSinceP3[idx] = 0;
+                                selectedIdx = idx;
                                 break;
                             }
                         }
                     }
                 }
                 
-                // If no P3 due, check P2
+                // Second priority: If no P3 due, check P2 (every 5 days)
                 if (!selectedSubject && p2Subjects.length > 0) {
                     for (let idx = 0; idx < p2Subjects.length; idx++) {
                         if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
@@ -930,28 +934,58 @@ class StudySchedule {
                             if (!subjectsForDay.some(s => s.name === subject)) {
                                 selectedSubject = subject;
                                 selectedPriority = 2;
-                                daysSinceP2[idx] = 0;
+                                selectedIdx = idx;
                                 break;
                             }
                         }
                     }
                 }
                 
-                // If still nothing, force one from P3 or P2
-                if (!selectedSubject && p3Subjects.length > 0) {
-                    selectedSubject = p3Subjects[p3Index % p3Subjects.length];
-                    selectedPriority = 3;
-                    daysSinceP3[p3Index % p3Subjects.length] = 0;
-                    p3Index++;
-                } else if (!selectedSubject && p2Subjects.length > 0) {
-                    selectedSubject = p2Subjects[p2Index % p2Subjects.length];
-                    selectedPriority = 2;
-                    daysSinceP2[p2Index % p2Subjects.length] = 0;
-                    p2Index++;
+                // Third priority: Force rotation through P2 subjects if nothing else selected
+                if (!selectedSubject && p2Subjects.length > 0) {
+                    // Cycle through all P2 subjects
+                    let attempts = 0;
+                    while (attempts < p2Subjects.length) {
+                        const idx = p2Index % p2Subjects.length;
+                        const subject = p2Subjects[idx];
+                        if (!subjectsForDay.some(s => s.name === subject)) {
+                            selectedSubject = subject;
+                            selectedPriority = 2;
+                            selectedIdx = idx;
+                            p2Index++;
+                            break;
+                        }
+                        p2Index++;
+                        attempts++;
+                    }
                 }
                 
-                // Allocate remaining hours to P3/P2
+                // Fourth priority: Force rotation through P3 subjects
+                if (!selectedSubject && p3Subjects.length > 0) {
+                    let attempts = 0;
+                    while (attempts < p3Subjects.length) {
+                        const idx = p3Index % p3Subjects.length;
+                        const subject = p3Subjects[idx];
+                        if (!subjectsForDay.some(s => s.name === subject)) {
+                            selectedSubject = subject;
+                            selectedPriority = 3;
+                            selectedIdx = idx;
+                            p3Index++;
+                            break;
+                        }
+                        p3Index++;
+                        attempts++;
+                    }
+                }
+                
+                // Update tracking arrays
                 if (selectedSubject) {
+                    if (selectedPriority === 3 && selectedIdx >= 0) {
+                        daysSinceP3[selectedIdx] = 0;
+                    } else if (selectedPriority === 2 && selectedIdx >= 0) {
+                        daysSinceP2[selectedIdx] = 0;
+                    }
+                    
                     const remaining = maxHours - hoursUsed;
                     subjectsForDay.push({ name: selectedSubject, priority: selectedPriority, hours: remaining });
                     hoursUsed = maxHours;
