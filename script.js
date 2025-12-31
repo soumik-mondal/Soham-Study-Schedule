@@ -856,7 +856,7 @@ class StudySchedule {
             daysSinceP3 = daysSinceP3.map(d => d + 1);
             daysSinceP2 = daysSinceP2.map(d => d + 1);
             
-            // Phase 1: Add 2 P5 subjects only (reserve space for P3/P2)
+            // Phase 1: Add 2 P5 subjects (4h: 2h each)
             const p5StartCount = 2;
             for (let i = 0; i < p5StartCount && p5Subjects.length > 0; i++) {
                 if (hoursUsed >= maxHours || subjectsForDay.length >= MAX_SUBJECTS) break;
@@ -879,8 +879,8 @@ class StudySchedule {
                 console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
             }
             
-            // Phase 2: Fill with P4 subjects
-            while (hoursUsed < maxHours && p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
+            // Phase 2: Add 1 P4 subject only (save slot for P3/P2)
+            if (hoursUsed < maxHours && p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
                 let subject = null;
                 for (let j = 0; j < p4Subjects.length; j++) {
                     const candidate = p4Subjects[(p4Index + j) % p4Subjects.length];
@@ -891,12 +891,12 @@ class StudySchedule {
                     }
                 }
                 
-                if (!subject) break;
-                
-                const hours = Math.min(p4Hours, maxHours - hoursUsed);
-                subjectsForDay.push({ name: subject, priority: 4, hours });
-                hoursUsed += hours;
-                console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
+                if (subject) {
+                    const hours = Math.min(p4Hours, maxHours - hoursUsed);
+                    subjectsForDay.push({ name: subject, priority: 4, hours });
+                    hoursUsed += hours;
+                    console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
+                }
             }
             
             // Phase 3: Add P3 if available and due (at least every 3 days each)
