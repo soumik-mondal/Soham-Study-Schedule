@@ -837,8 +837,9 @@ class StudySchedule {
         let daysSinceP3 = [];
         let daysSinceP2 = [];
         
-        p3Subjects.forEach(() => daysSinceP3.push(0));
-        p2Subjects.forEach(() => daysSinceP2.push(0));
+        // Initialize to high values so P3 has priority on day 1
+        p3Subjects.forEach(() => daysSinceP3.push(3));   // Start at 3 so >= 3 condition is met on day 1
+        p2Subjects.forEach(() => daysSinceP2.push(5));   // Start at 5 so >= 5 condition is met on day 1
         
         this.schedule = this.schedule.map((day, dayIndex) => {
             const maxHours = day.totalHours;
@@ -911,10 +912,10 @@ class StudySchedule {
                 let selectedPriority = 0;
                 let selectedIdx = -1;
                 
-                // First priority: Check if any P3 is due (every 3 days)
+                // First priority: Check P3 subjects (every 3 days)
                 if (p3Subjects.length > 0) {
                     for (let idx = 0; idx < p3Subjects.length; idx++) {
-                        if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
+                        if (daysSinceP3[idx] >= 3) {
                             const subject = p3Subjects[idx];
                             if (!subjectsForDay.some(s => s.name === subject)) {
                                 selectedSubject = subject;
@@ -926,41 +927,7 @@ class StudySchedule {
                     }
                 }
                 
-                // Second priority: If no P3 due, check P2 (every 5 days)
-                if (!selectedSubject && p2Subjects.length > 0) {
-                    for (let idx = 0; idx < p2Subjects.length; idx++) {
-                        if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
-                            const subject = p2Subjects[idx];
-                            if (!subjectsForDay.some(s => s.name === subject)) {
-                                selectedSubject = subject;
-                                selectedPriority = 2;
-                                selectedIdx = idx;
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // Third priority: Force rotation through P2 subjects if nothing else selected
-                if (!selectedSubject && p2Subjects.length > 0) {
-                    // Cycle through all P2 subjects
-                    let attempts = 0;
-                    while (attempts < p2Subjects.length) {
-                        const idx = p2Index % p2Subjects.length;
-                        const subject = p2Subjects[idx];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            selectedSubject = subject;
-                            selectedPriority = 2;
-                            selectedIdx = idx;
-                            p2Index++;
-                            break;
-                        }
-                        p2Index++;
-                        attempts++;
-                    }
-                }
-                
-                // Fourth priority: Force rotation through P3 subjects
+                // Second priority: Force rotation through P3 subjects if none due
                 if (!selectedSubject && p3Subjects.length > 0) {
                     let attempts = 0;
                     while (attempts < p3Subjects.length) {
@@ -974,6 +941,39 @@ class StudySchedule {
                             break;
                         }
                         p3Index++;
+                        attempts++;
+                    }
+                }
+                
+                // Third priority: Check P2 subjects (every 5 days) if no P3 available
+                if (!selectedSubject && p2Subjects.length > 0) {
+                    for (let idx = 0; idx < p2Subjects.length; idx++) {
+                        if (daysSinceP2[idx] >= 5) {
+                            const subject = p2Subjects[idx];
+                            if (!subjectsForDay.some(s => s.name === subject)) {
+                                selectedSubject = subject;
+                                selectedPriority = 2;
+                                selectedIdx = idx;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Fourth priority: Force rotation through P2 subjects if nothing else selected
+                if (!selectedSubject && p2Subjects.length > 0) {
+                    let attempts = 0;
+                    while (attempts < p2Subjects.length) {
+                        const idx = p2Index % p2Subjects.length;
+                        const subject = p2Subjects[idx];
+                        if (!subjectsForDay.some(s => s.name === subject)) {
+                            selectedSubject = subject;
+                            selectedPriority = 2;
+                            selectedIdx = idx;
+                            p2Index++;
+                            break;
+                        }
+                        p2Index++;
                         attempts++;
                     }
                 }
