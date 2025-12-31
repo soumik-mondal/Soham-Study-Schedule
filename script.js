@@ -888,83 +888,60 @@ class StudySchedule {
                 if (p4Index >= p4Subjects.length * 2) break;
             }
             
-            // P3: Include periodically or when needed to fill hours
-            if (hoursUsed < maxHoursForDay && p3Subjects.length > 0 && (daysSinceP3 >= 3 || hoursUsed < maxHoursForDay * 0.8)) {
-                const p3Subject = p3Subjects[p3Index % p3Subjects.length];
-                const allocatedHours = Math.min(p3Hours, maxHoursForDay - hoursUsed);
-                
-                if (allocatedHours > 0.5) {
-                    subjectsForDay.push({ name: p3Subject, priority: 3, hours: allocatedHours });
-                    hoursUsed += allocatedHours;
-                    daysSinceP3 = 0;
-                    console.log(`  P3: ${p3Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
-                    p3Index++;
-                }
-            }
+            // Fill any remaining hours with smallest subjects
+            console.log(`DEBUG: After P4, hoursUsed=${hoursUsed}, maxHours=${maxHoursForDay}, remaining=${(maxHoursForDay-hoursUsed).toFixed(1)}h`);
             
-            // P2: Include periodically or when needed to fill hours
-            if (hoursUsed < maxHoursForDay && p2Subjects.length > 0 && (daysSinceP2 >= 5 || hoursUsed < maxHoursForDay * 0.9)) {
-                const p2Subject = p2Subjects[p2Index % p2Subjects.length];
-                const allocatedHours = Math.min(p2Hours, maxHoursForDay - hoursUsed);
-                
-                if (allocatedHours > 0.5) {
-                    subjectsForDay.push({ name: p2Subject, priority: 2, hours: allocatedHours });
-                    hoursUsed += allocatedHours;
-                    daysSinceP2 = 0;
-                    console.log(`  P2: ${p2Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
-                    p2Index++;
-                }
-            }
-            
-            // Fallback: Fill any remaining hours with available subjects (smallest increment)
-            const minIncrement = 0.5;
-            console.log(`⚠ Starting fallback filling: hoursUsed=${hoursUsed}, maxHours=${maxHoursForDay}, remaining=${(maxHoursForDay - hoursUsed).toFixed(1)}h`);
-            
-            let fallbackIterations = 0;
-            while (hoursUsed < maxHoursForDay - 0.01 && fallbackIterations < 20) {
-                fallbackIterations++;
-                let filled = false;
+            while (hoursUsed < maxHoursForDay - 0.01) {
                 const remaining = maxHoursForDay - hoursUsed;
-                console.log(`  Fallback iteration ${fallbackIterations}: remaining=${remaining.toFixed(1)}h`);
+                let added = false;
                 
-                // Try P5 again if still room
-                if (!filled && p5Subjects.length > 0 && remaining >= minIncrement) {
-                    const p5Subject = p5Subjects[p5Index % p5Subjects.length];
-                    const allocatedHours = Math.min(minIncrement, remaining);
-                    subjectsForDay.push({ name: p5Subject, priority: 5, hours: allocatedHours });
-                    hoursUsed += allocatedHours;
-                    p5Index++;
-                    console.log(`    ✓ P5 (filler): ${p5Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
-                    filled = true;
-                }
-                
-                // Try P4 if still room
-                if (!filled && p4Subjects.length > 0 && remaining >= minIncrement) {
-                    const p4Subject = p4Subjects[p4Index % p4Subjects.length];
-                    const allocatedHours = Math.min(minIncrement, remaining);
-                    subjectsForDay.push({ name: p4Subject, priority: 4, hours: allocatedHours });
-                    hoursUsed += allocatedHours;
-                    p4Index++;
-                    console.log(`    ✓ P4 (filler): ${p4Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
-                    filled = true;
-                }
-                
-                // Try P3 if still room
-                if (!filled && p3Subjects.length > 0 && remaining >= minIncrement) {
+                // Try P3 subjects
+                if (p3Subjects.length > 0 && remaining >= 1.5) {
                     const p3Subject = p3Subjects[p3Index % p3Subjects.length];
-                    const allocatedHours = Math.min(minIncrement, remaining);
-                    subjectsForDay.push({ name: p3Subject, priority: 3, hours: allocatedHours });
-                    hoursUsed += allocatedHours;
+                    const hours = Math.min(p3Hours, remaining);
+                    subjectsForDay.push({ name: p3Subject, priority: 3, hours });
+                    hoursUsed += hours;
                     p3Index++;
-                    console.log(`    ✓ P3 (filler): ${p3Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
-                    filled = true;
+                    console.log(`  P3: ${p3Subject} → ${hours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                    added = true;
                 }
                 
-                if (!filled) {
-                    console.log(`    ✗ No subjects available to fill remaining ${remaining.toFixed(1)}h`);
-                    break;
+                // Try P2 subjects
+                if (!added && p2Subjects.length > 0 && remaining >= 1.0) {
+                    const p2Subject = p2Subjects[p2Index % p2Subjects.length];
+                    const hours = Math.min(p2Hours, remaining);
+                    subjectsForDay.push({ name: p2Subject, priority: 2, hours });
+                    hoursUsed += hours;
+                    p2Index++;
+                    console.log(`  P2: ${p2Subject} → ${hours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                    added = true;
                 }
+                
+                // Try P5 again for small increments
+                if (!added && p5Subjects.length > 0 && remaining >= 0.5) {
+                    const p5Subject = p5Subjects[p5Index % p5Subjects.length];
+                    const hours = 0.5;
+                    subjectsForDay.push({ name: p5Subject, priority: 5, hours });
+                    hoursUsed += hours;
+                    p5Index++;
+                    console.log(`  P5 (fill): ${p5Subject} → ${hours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                    added = true;
+                }
+                
+                // Try P4 again for small increments
+                if (!added && p4Subjects.length > 0 && remaining >= 0.5) {
+                    const p4Subject = p4Subjects[p4Index % p4Subjects.length];
+                    const hours = 0.5;
+                    subjectsForDay.push({ name: p4Subject, priority: 4, hours });
+                    hoursUsed += hours;
+                    p4Index++;
+                    console.log(`  P4 (fill): ${p4Subject} → ${hours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                    added = true;
+                }
+                
+                if (!added) break; // Can't fill more
             }
+            
             console.log(`✓ Day ${dayIndex + 1} total: ${hoursUsed.toFixed(1)}h / ${maxHoursForDay}h, Subjects: ${subjectsForDay.length}`);
             return { ...day, subjects: subjectsForDay };
         });
