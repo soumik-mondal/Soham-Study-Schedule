@@ -888,8 +888,8 @@ class StudySchedule {
                 if (p4Index >= p4Subjects.length * 2) break;
             }
             
-            // P3: Include every 2-3 days
-            if (daysSinceP3 >= 3 && hoursUsed < maxHoursForDay && p3Subjects.length > 0) {
+            // P3: Include periodically or when needed to fill hours
+            if (hoursUsed < maxHoursForDay && p3Subjects.length > 0 && (daysSinceP3 >= 3 || hoursUsed < maxHoursForDay * 0.8)) {
                 const p3Subject = p3Subjects[p3Index % p3Subjects.length];
                 const allocatedHours = Math.min(p3Hours, maxHoursForDay - hoursUsed);
                 
@@ -902,8 +902,8 @@ class StudySchedule {
                 }
             }
             
-            // P2: Include every 4-5 days
-            if (daysSinceP2 >= 5 && hoursUsed < maxHoursForDay && p2Subjects.length > 0) {
+            // P2: Include periodically or when needed to fill hours
+            if (hoursUsed < maxHoursForDay && p2Subjects.length > 0 && (daysSinceP2 >= 5 || hoursUsed < maxHoursForDay * 0.9)) {
                 const p2Subject = p2Subjects[p2Index % p2Subjects.length];
                 const allocatedHours = Math.min(p2Hours, maxHoursForDay - hoursUsed);
                 
