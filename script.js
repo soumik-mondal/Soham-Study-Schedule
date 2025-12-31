@@ -443,6 +443,20 @@ class StudySchedule {
             });
         }
 
+        // Hard Reset Button
+        const hardResetBtn = document.getElementById('hardResetBtn');
+        if (hardResetBtn) {
+            hardResetBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm('🔄 This will clear ALL data and restart the app. Continue?')) {
+                    console.log('Hard Reset initiated...');
+                    localStorage.clear();
+                    console.log('✓ All data cleared');
+                    location.reload();
+                }
+            });
+        }
+
         const startDateInput = document.getElementById('startDate');
         if (startDateInput) {
             startDateInput.addEventListener('change', () => {
