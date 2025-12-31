@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soham-study-schedule-v2';
+const CACHE_NAME = 'soham-study-schedule-v3-' + Date.now();
 const ESSENTIAL_ASSETS = [
     './',
     './index.html',
@@ -9,14 +9,11 @@ const ESSENTIAL_ASSETS = [
 
 // Install service worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing v2...');
-    
+    console.log('Service Worker: Installing v3 (cache busted)...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('Service Worker: Caching essential assets');
-                // Cache only essential files that exist
-                return Promise.all(
                     ESSENTIAL_ASSETS.map(asset => {
                         return cache.add(asset).catch(err => {
                             console.log(`Service Worker: Could not cache ${asset}:`, err);

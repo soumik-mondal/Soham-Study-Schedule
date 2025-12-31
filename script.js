@@ -856,7 +856,7 @@ class StudySchedule {
             daysSinceP3 = daysSinceP3.map(d => d + 1);
             daysSinceP2 = daysSinceP2.map(d => d + 1);
             
-            // Phase 1: Add 2 P5 subjects (4h: 2h each)
+            // Phase 1: Add 2 P5 subjects
             const p5StartCount = 2;
             for (let i = 0; i < p5StartCount && p5Subjects.length > 0; i++) {
                 if (hoursUsed >= maxHours || subjectsForDay.length >= MAX_SUBJECTS) break;
@@ -873,13 +873,14 @@ class StudySchedule {
                 
                 if (!subject) break;
                 
-                const hours = Math.min(p5Hours, maxHours - hoursUsed);
+                // Allocate 2h to each P5 to leave room for P4 and P3/P2
+                const hours = 2;
                 subjectsForDay.push({ name: subject, priority: 5, hours });
                 hoursUsed += hours;
                 console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
             }
             
-            // Phase 2: Add 1 P4 subject only (save slot for P3/P2)
+            // Phase 2: Add 1 P4 subject
             if (hoursUsed < maxHours && p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
                 let subject = null;
                 for (let j = 0; j < p4Subjects.length; j++) {
@@ -892,7 +893,8 @@ class StudySchedule {
                 }
                 
                 if (subject) {
-                    const hours = Math.min(p4Hours, maxHours - hoursUsed);
+                    // Allocate 1.5h to P4
+                    const hours = 1.5;
                     subjectsForDay.push({ name: subject, priority: 4, hours });
                     hoursUsed += hours;
                     console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
@@ -905,7 +907,9 @@ class StudySchedule {
                     if (daysSinceP3[idx] >= 3 || daysSinceP3[idx] === 0) {
                         const subject = p3Subjects[idx];
                         if (!subjectsForDay.some(s => s.name === subject) && hoursUsed < maxHours) {
-                            const hours = Math.min(p3Hours, maxHours - hoursUsed);
+                            // Use remaining hours for P3, minimum 1h
+                            const remaining = maxHours - hoursUsed;
+                            const hours = Math.max(1, remaining);
                             subjectsForDay.push({ name: subject, priority: 3, hours });
                             hoursUsed += hours;
                             daysSinceP3[idx] = 0;
@@ -922,7 +926,9 @@ class StudySchedule {
                     if (daysSinceP2[idx] >= 5 || daysSinceP2[idx] === 0) {
                         const subject = p2Subjects[idx];
                         if (!subjectsForDay.some(s => s.name === subject) && hoursUsed < maxHours) {
-                            const hours = Math.min(p2Hours, maxHours - hoursUsed);
+                            // Use remaining hours for P2, minimum 1h
+                            const remaining = maxHours - hoursUsed;
+                            const hours = Math.max(1, remaining);
                             subjectsForDay.push({ name: subject, priority: 2, hours });
                             hoursUsed += hours;
                             daysSinceP2[idx] = 0;
