@@ -814,7 +814,7 @@ class StudySchedule {
     }
 
     createRotatingSchedule() {
-        console.log('\n--- CREATING ROTATING SCHEDULE ---');
+        console.log('\n--- CREATING ROTATING SCHEDULE WITH FULL COVERAGE ---');
         
         // Get all non-excluded subjects grouped by priority
         const subjectsByPriority = {
@@ -829,94 +829,96 @@ class StudySchedule {
         
         console.log('Subjects by priority:', subjectsByPriority);
         
-        const totalDays = this.schedule.length;
-        const p5Subjects = subjectsByPriority[5]; // Math, Physics, Chemistry
-        const p4Subjects = subjectsByPriority[4]; // Biology, AI & Robotics
+        const p5Subjects = subjectsByPriority[5]; // Math, Physics, Chemistry (3 total)
+        const p4Subjects = subjectsByPriority[4]; // Biology, AI & Robotics (2 total)
         const p3Subjects = subjectsByPriority[3];
         const p2Subjects = subjectsByPriority[2];
-        const p1Subjects = subjectsByPriority[1];
+        
+        // Base hours from config
+        const p5Hours = this.config.baseHours[5] || 2.5;
+        const p4Hours = this.config.baseHours[4] || 2;
+        const p3Hours = this.config.baseHours[3] || 1.5;
+        const p2Hours = this.config.baseHours[2] || 1;
         
         // Initialize rotation trackers
-        let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0, p1Index = 0;
+        let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0;
         let daysSinceP3 = 0, daysSinceP2 = 0;
-        const MAX_SUBJECTS_PER_DAY = 4;
         
         // Generate schedule for each day
         this.schedule = this.schedule.map((day, dayIndex) => {
-            console.log(`\nDay ${dayIndex + 1}: ${day.date} (${day.totalHours} hours)`);
+            const maxHoursForDay = day.totalHours; // Use actual input hours for this day
+            console.log(`\nDay ${dayIndex + 1}: ${day.date} (${maxHoursForDay} hours available)`);
             
-            if (day.totalHours <= 0) {
+            if (maxHoursForDay <= 0) {
                 console.log('No hours, skipping...');
                 return { ...day, subjects: [] };
             }
             
             const subjectsForDay = [];
-            let remainingHours = day.totalHours;
+            let hoursUsed = 0;
+            const p5Count = 2 + (dayIndex % 2); // Alternate between 2-3 P5 subjects
             
-            // P5: Include one P5 subject (rotate through them)
-            if (p5Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
+            // Add 2-3 P5 subjects (rotate through all P5 subjects)
+            for (let i = 0; i < p5Count && p5Subjects.length > 0 && hoursUsed < maxHoursForDay; i++) {
                 const p5Subject = p5Subjects[p5Index % p5Subjects.length];
-                const p5Hours = this.config.baseHours[5] || 2.5;
-                if (remainingHours >= p5Hours) {
-                    subjectsForDay.push({ name: p5Subject, priority: 5, hours: p5Hours });
-                    remainingHours -= p5Hours;
-                    console.log(`  P5 (rotating): ${p5Subject} → ${p5Hours}h`);
-                    p5Index++;
-                }
+                const allocatedHours = Math.min(p5Hours, maxHoursForDay - hoursUsed);
+                
+                subjectsForDay.push({ name: p5Subject, priority: 5, hours: allocatedHours });
+                hoursUsed += allocatedHours;
+                console.log(`  P5: ${p5Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                p5Index++;
             }
             
-            // P4: Include one P4 subject (rotate)
-            if (p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
+            // Add P4 subjects to fill remaining hours (rotate through P4)
+            daysSinceP3++;
+            daysSinceP2++;
+            
+            // Decide if we should add P3 or P2 instead of P4
+            let addP3 = false, addP2 = false;
+            
+            if (p3Subjects.length > 0 && daysSinceP3 >= 3) {
+                addP3 = true;
+                daysSinceP3 = 0;
+            } else if (p2Subjects.length > 0 && daysSinceP2 >= 5) {
+                addP2 = true;
+                daysSinceP2 = 0;
+            }
+            
+            // Fill remaining hours
+            if (addP2 && hoursUsed < maxHoursForDay) {
+                const p2Subject = p2Subjects[p2Index % p2Subjects.length];
+                const allocatedHours = Math.min(p2Hours, maxHoursForDay - hoursUsed);
+                subjectsForDay.push({ name: p2Subject, priority: 2, hours: allocatedHours });
+                hoursUsed += allocatedHours;
+                console.log(`  P2 (periodic): ${p2Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                p2Index++;
+            } else if (addP3 && hoursUsed < maxHoursForDay) {
+                const p3Subject = p3Subjects[p3Index % p3Subjects.length];
+                const allocatedHours = Math.min(p3Hours, maxHoursForDay - hoursUsed);
+                subjectsForDay.push({ name: p3Subject, priority: 3, hours: allocatedHours });
+                hoursUsed += allocatedHours;
+                console.log(`  P3 (periodic): ${p3Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
+                p3Index++;
+            }
+            
+            // Fill remaining with P4 subjects
+            while (hoursUsed < maxHoursForDay && p4Subjects.length > 0) {
                 const p4Subject = p4Subjects[p4Index % p4Subjects.length];
-                const p4Hours = this.config.baseHours[4] || 2;
-                if (remainingHours >= p4Hours) {
-                    subjectsForDay.push({ name: p4Subject, priority: 4, hours: p4Hours });
-                    remainingHours -= p4Hours;
-                    console.log(`  P4 (rotating): ${p4Subject} → ${p4Hours}h`);
+                const allocatedHours = Math.min(p4Hours, maxHoursForDay - hoursUsed);
+                
+                // Only add if it doesn't already exist
+                const alreadyExists = subjectsForDay.some(s => s.name === p4Subject);
+                if (!alreadyExists) {
+                    subjectsForDay.push({ name: p4Subject, priority: 4, hours: allocatedHours });
+                    hoursUsed += allocatedHours;
+                    console.log(`  P4: ${p4Subject} → ${allocatedHours.toFixed(1)}h (total: ${hoursUsed.toFixed(1)}h)`);
                     p4Index++;
                 }
+                
+                if (allocatedHours < p4Hours) break; // No more room
             }
             
-            // P3: Include if available and haven't included recently
-            daysSinceP3++;
-            if (p3Subjects.length > 0 && daysSinceP3 >= 5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
-                const p3Subject = p3Subjects[p3Index % p3Subjects.length];
-                const p3Hours = Math.min(this.config.baseHours[3] || 1.5, remainingHours);
-                if (p3Hours > 0.5) {
-                    subjectsForDay.push({ name: p3Subject, priority: 3, hours: p3Hours });
-                    remainingHours -= p3Hours;
-                    daysSinceP3 = 0;
-                    console.log(`  P3 (periodic): ${p3Subject} → ${p3Hours.toFixed(1)}h`);
-                    p3Index++;
-                }
-            }
-            
-            // P2: Include if available and haven't included recently - PRIORITY
-            daysSinceP2++;
-            if (p2Subjects.length > 0 && daysSinceP2 >= 5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
-                const p2Subject = p2Subjects[p2Index % p2Subjects.length];
-                const p2Hours = Math.min(this.config.baseHours[2] || 1, remainingHours);
-                if (p2Hours > 0.5) {
-                    subjectsForDay.push({ name: p2Subject, priority: 2, hours: p2Hours });
-                    remainingHours -= p2Hours;
-                    daysSinceP2 = 0;
-                    console.log(`  P2 (periodic): ${p2Subject} → ${p2Hours.toFixed(1)}h`);
-                    p2Index++;
-                }
-            }
-            
-            // Fill remaining hours with P1 if available and haven't hit subject limit
-            if (p1Subjects.length > 0 && remainingHours > 0.5 && subjectsForDay.length < MAX_SUBJECTS_PER_DAY) {
-                const p1Subject = p1Subjects[p1Index % p1Subjects.length];
-                const p1Hours = Math.min(remainingHours, this.config.baseHours[1] || 1);
-                if (p1Hours > 0) {
-                    subjectsForDay.push({ name: p1Subject, priority: 1, hours: p1Hours });
-                    console.log(`  P1: ${p1Subject} → ${p1Hours.toFixed(1)}h`);
-                    p1Index++;
-                }
-            }
-            
-            console.log(`Day total: ${(day.totalHours - remainingHours).toFixed(1)}h, Subjects: ${subjectsForDay.length}`);
+            console.log(`✓ Day ${dayIndex + 1} total: ${hoursUsed.toFixed(1)}h / ${maxHoursForDay}h, Subjects: ${subjectsForDay.length}`);
             return { ...day, subjects: subjectsForDay };
         });
     }
