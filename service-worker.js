@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soham-study-schedule-v1';
+const CACHE_NAME = 'soham-study-schedule-v2';
 const ESSENTIAL_ASSETS = [
     './',
     './index.html',
@@ -9,7 +9,7 @@ const ESSENTIAL_ASSETS = [
 
 // Install service worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing v1...');
+    console.log('Service Worker: Installing v2...');
     
     event.waitUntil(
         caches.open(CACHE_NAME)
