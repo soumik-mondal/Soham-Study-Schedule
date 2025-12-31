@@ -861,45 +861,54 @@ class StudySchedule {
             const p5Count = dayIndex % 2 === 0 ? 2 : 3;
             for (let i = 0; i < p5Count && p5Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS; i++) {
                 if (hoursUsed >= maxHours) break;
-                const subject = p5Subjects[p5Index % p5Subjects.length];
                 
-                // Check if already in day
-                if (subjectsForDay.some(s => s.name === subject)) {
-                    p5Index++;
-                    continue;
+                let subject = null;
+                for (let j = 0; j < p5Subjects.length; j++) {
+                    const candidate = p5Subjects[(p5Index + j) % p5Subjects.length];
+                    if (!subjectsForDay.some(s => s.name === candidate)) {
+                        subject = candidate;
+                        p5Index = (p5Index + j + 1) % p5Subjects.length;
+                        break;
+                    }
                 }
+                
+                if (!subject) break;
                 
                 const hours = Math.min(p5Hours, maxHours - hoursUsed);
                 subjectsForDay.push({ name: subject, priority: 5, hours });
                 hoursUsed += hours;
-                p5Index++;
                 console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
             }
             
             // Phase 2: Fill with P4 subjects (no duplicates, max 4 subjects total)
             while (hoursUsed < maxHours && p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                const subject = p4Subjects[p4Index % p4Subjects.length];
-                
-                // Check if already in day
-                if (subjectsForDay.some(s => s.name === subject)) {
-                    p4Index++;
-                    continue;
+                let subject = null;
+                for (let j = 0; j < p4Subjects.length; j++) {
+                    const candidate = p4Subjects[(p4Index + j) % p4Subjects.length];
+                    if (!subjectsForDay.some(s => s.name === candidate)) {
+                        subject = candidate;
+                        p4Index = (p4Index + j + 1) % p4Subjects.length;
+                        break;
+                    }
                 }
+                
+                if (!subject) break;
                 
                 const hours = Math.min(p4Hours, maxHours - hoursUsed);
                 subjectsForDay.push({ name: subject, priority: 4, hours });
                 hoursUsed += hours;
-                p4Index++;
                 console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
                 
                 if (hoursUsed >= maxHours) break;
             }
             
-            // Phase 3: Add P3 subjects periodically (every 3 days each)
+            // Phase 3: Add P3 subjects (if due OR if room to fill)
             if (hoursUsed < maxHours && p3Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                // Find which P3 subjects are due (haven't appeared in >= 3 days)
                 for (let idx = 0; idx < p3Subjects.length; idx++) {
-                    if (daysSinceP3[idx] >= 3 && hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS) {
+                    if (hoursUsed >= maxHours || subjectsForDay.length >= MAX_SUBJECTS) break;
+                    
+                    // Add if due (>= 3 days) OR if we still have space to fill
+                    if ((daysSinceP3[idx] >= 3 || (hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS)) && daysSinceP3[idx] > 0) {
                         const subject = p3Subjects[idx];
                         
                         if (!subjectsForDay.some(s => s.name === subject)) {
@@ -907,7 +916,7 @@ class StudySchedule {
                             if (hours > 0) {
                                 subjectsForDay.push({ name: subject, priority: 3, hours });
                                 hoursUsed += hours;
-                                daysSinceP3[idx] = 0; // Reset counter
+                                daysSinceP3[idx] = 0;
                                 console.log(`  P3: ${subject} (${hours}h, total: ${hoursUsed}h)`);
                             }
                         }
@@ -915,11 +924,13 @@ class StudySchedule {
                 }
             }
             
-            // Phase 4: Add P2 subjects periodically (every 5 days each)
+            // Phase 4: Add P2 subjects (if due OR if room to fill)
             if (hoursUsed < maxHours && p2Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                // Find which P2 subjects are due (haven't appeared in >= 5 days)
                 for (let idx = 0; idx < p2Subjects.length; idx++) {
-                    if (daysSinceP2[idx] >= 5 && hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS) {
+                    if (hoursUsed >= maxHours || subjectsForDay.length >= MAX_SUBJECTS) break;
+                    
+                    // Add if due (>= 5 days) OR if we still have space to fill
+                    if ((daysSinceP2[idx] >= 5 || (hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS)) && daysSinceP2[idx] > 0) {
                         const subject = p2Subjects[idx];
                         
                         if (!subjectsForDay.some(s => s.name === subject)) {
@@ -927,7 +938,7 @@ class StudySchedule {
                             if (hours > 0) {
                                 subjectsForDay.push({ name: subject, priority: 2, hours });
                                 hoursUsed += hours;
-                                daysSinceP2[idx] = 0; // Reset counter
+                                daysSinceP2[idx] = 0;
                                 console.log(`  P2: ${subject} (${hours}h, total: ${hoursUsed}h)`);
                             }
                         }
@@ -979,6 +990,7 @@ class StudySchedule {
                             hoursUsed += 0.5;
                             p3Index++;
                             console.log(`  P3+: ${subject} (0.5h, total: ${hoursUsed}h)`);
+                            daysSinceP3[p3Subjects.indexOf(subject)] = 0;
                             added = true;
                             break;
                         }
