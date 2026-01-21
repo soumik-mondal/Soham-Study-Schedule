@@ -203,18 +203,13 @@ class StudySchedule {
                 1: 1.0,
                 2: 1.0,
                 3: 1.5,
-                4: 1.5,
-                5: 1.5
+                4: 2.0, // P4 base hours for 8h+ days
+                5: 3.0  // P5 base hours for 6h+ days
             },
             minHoursToInclude: 1.0,
             roundTo: 0.5,
             includedPriorities: [1, 2, 3, 4, 5],
-            maxSubjectsPerDay: 4, // NEW: configurable max subjects per day
-            p5SplitThresholds: {
-                single: 3,      // <3h = 1 P5 subject
-                doubleMin: 4,   // >=4h
-                doubleMax: 6    // <=6h
-            }
+            maxSubjectsPerDay: 4
         };
     }
 
@@ -382,18 +377,23 @@ class StudySchedule {
         }
 
         container.innerHTML = this.schedule.map(day => {
-            const dayOfWeek = new Date(day.date).getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            // Use direct local date parsing for correct day-of-week
+            const dateObj = new Date(day.date + 'T00:00:00');
+            const dayOfWeek = dateObj.getDay();
+            // Weekend is strictly Saturday (6) and Sunday (0)
+            const isWeekend = (dayOfWeek === 6 || dayOfWeek === 0);
             const dayType = isWeekend ? 'Weekend' : 'Weekday';
             const defaultHours = isWeekend ? 6 : 4;
             const totalHours = day.totalHours > 0 ? day.totalHours : defaultHours;
-            
+            // Debug log for verification
+            console.log(`Date: ${day.date}, DayOfWeek: ${dayOfWeek}, Weekend: ${isWeekend}`);
+
             return `
                 <div class="hour-input-item" data-date="${day.date}" data-weekend="${isWeekend}">
                     <div class="day-info">
                         <div class="day-name">${day.name}</div>
                         <div class="day-date">${day.displayDate}</div>
-                        <span class="day-type ${isWeekend ? 'weekend' : ''}">${dayType}</span>
+                        <!-- Removed weekday/weekend label -->
                     </div>
                     <div class="hour-input-container">
                         <input 
@@ -845,42 +845,35 @@ class StudySchedule {
     generateDaysFromRange() {
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
-        
         if (!startDateInput || !endDateInput) {
             console.error('Date inputs not found');
             return;
         }
-
         const startDateValue = startDateInput.value;
         const endDateValue = endDateInput.value;
-
         if (!startDateValue || !endDateValue) {
             console.log('Please select both start and end dates');
             return;
         }
-
-        const startDate = new Date(startDateValue);
-        const endDate = new Date(endDateValue);
-
+        // Parse as local date (not UTC)
+        const startDate = new Date(startDateValue + 'T00:00:00');
+        const endDate = new Date(endDateValue + 'T00:00:00');
         if (startDate > endDate) {
             alert('Start date cannot be after end date');
             return;
         }
-
         const days = [];
-        const currentDate = new Date(startDate);
-        
-        while (currentDate <= endDate) {
+        // Ensure currentDate is set to the selected start date exactly
+        let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        while (currentDate.getTime() <= endDate.getTime()) {
             const dateString = currentDate.toISOString().split('T')[0];
             const displayDate = currentDate.toLocaleDateString('en-US', { 
                 month: 'short', 
                 day: 'numeric',
                 year: 'numeric'
             });
-            
             // Check if we already have this day in the schedule with saved data
             const existingDay = this.schedule.find(d => d.date === dateString);
-            
             days.push({
                 name: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
                 date: dateString,
@@ -888,10 +881,8 @@ class StudySchedule {
                 totalHours: existingDay ? existingDay.totalHours : 0,
                 subjects: existingDay ? existingDay.subjects : []
             });
-            
             currentDate.setDate(currentDate.getDate() + 1);
         }
-
         this.schedule = days;
         this.renderHoursInputs();
         this.renderSchedule();
@@ -927,6 +918,73 @@ class StudySchedule {
     }
 
     createRotatingSchedule() {
+                // Helper to force overdue P3/P2/P1 inclusion if not scheduled in their window
+                function forceOverdueInclusion(subjectsForDay, maxSubjects, dayIndex) {
+                    // Check for overdue P3 (strict: every 3 days)
+                    for (let i = 0; i < p3Subjects.length; i++) {
+                        if (daysSinceP3[i] > 2) { // Missed in 3 days
+                            // Remove lowest priority subject if needed
+                            if (subjectsForDay.length >= maxSubjects) {
+                                let minIdx = -1, minPriority = 99;
+                                for (let j = 0; j < subjectsForDay.length; j++) {
+                                    if (subjectsForDay[j].priority < minPriority) {
+                                        minPriority = subjectsForDay[j].priority;
+                                        minIdx = j;
+                                    }
+                                }
+                                if (minIdx !== -1 && minPriority < 3) {
+                                    subjectsForDay.splice(minIdx, 1);
+                                } else {
+                                    continue;
+                                }
+                            }
+                            subjectsForDay.push({ name: p3Subjects[i], priority: 3, hours: 1 });
+                            daysSinceP3[i] = 0;
+                        }
+                    }
+                    // Check for overdue P2 (strict: every 5 days)
+                    for (let i = 0; i < p2Subjects.length; i++) {
+                        if (daysSinceP2[i] > 4) { // Missed in 5 days
+                            if (subjectsForDay.length >= maxSubjects) {
+                                let minIdx = -1, minPriority = 99;
+                                for (let j = 0; j < subjectsForDay.length; j++) {
+                                    if (subjectsForDay[j].priority < minPriority) {
+                                        minPriority = subjectsForDay[j].priority;
+                                        minIdx = j;
+                                    }
+                                }
+                                if (minIdx !== -1 && minPriority < 2) {
+                                    subjectsForDay.splice(minIdx, 1);
+                                } else {
+                                    continue;
+                                }
+                            }
+                            subjectsForDay.push({ name: p2Subjects[i], priority: 2, hours: 1 });
+                            daysSinceP2[i] = 0;
+                        }
+                    }
+                    // Check for overdue P1 (strict: every 5 days)
+                    for (let i = 0; i < subjectsByPriority[1].length; i++) {
+                        if (daysSinceP2[i] > 4) { // Missed in 5 days
+                            if (subjectsForDay.length >= maxSubjects) {
+                                let minIdx = -1, minPriority = 99;
+                                for (let j = 0; j < subjectsForDay.length; j++) {
+                                    if (subjectsForDay[j].priority < minPriority) {
+                                        minPriority = subjectsForDay[j].priority;
+                                        minIdx = j;
+                                    }
+                                }
+                                if (minIdx !== -1 && minPriority < 1) {
+                                    subjectsForDay.splice(minIdx, 1);
+                                } else {
+                                    continue;
+                                }
+                            }
+                            subjectsForDay.push({ name: subjectsByPriority[1][i], priority: 1, hours: 1 });
+                            daysSinceP2[i] = 0;
+                        }
+                    }
+                }
         // Always reload latest user-defined subjects and priorities from localStorage
         const savedSubjects = localStorage.getItem('defaultSubjects');
         if (savedSubjects) {
@@ -943,10 +1001,18 @@ class StudySchedule {
                 subjectsByPriority[priority].push(subject);
             }
         });
+        console.log('Subjects by priority:', {
+            P5: subjectsByPriority[5],
+            P4: subjectsByPriority[4],
+            P3: subjectsByPriority[3],
+            P2: subjectsByPriority[2],
+            P1: subjectsByPriority[1]
+        });
         const p5Subjects = subjectsByPriority[5];
         const p4Subjects = subjectsByPriority[4];
         const p3Subjects = subjectsByPriority[3];
         const p2Subjects = subjectsByPriority[2];
+        const p1Subjects = subjectsByPriority[1];
         // Use config for P5 split thresholds and max subjects
         const p5Split = this.config.p5SplitThresholds || { single: 3, doubleMin: 4, doubleMax: 6 };
         const maxSubjects = this.config.maxSubjectsPerDay || 4;
@@ -954,81 +1020,248 @@ class StudySchedule {
         const p4Hours = 2.5;
         const p3Hours = 1.5;
         const p2Hours = 1.0;
-        let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0;
+        let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0, p1Index = 0;
+        let p123RotationIndex = 0; // Track rotation through P3, P2, P1 (0 = P3, 1 = P2, 2 = P1)
         let daysSinceP3 = [];
         let daysSinceP2 = [];
-        // Initialize to high values so P3 has priority on day 1
-        p3Subjects.forEach(() => daysSinceP3.push(3));
-        p2Subjects.forEach(() => daysSinceP2.push(5));
+        let daysSinceP1 = [];
+        // Initialize to negative values so they don't force on early days
+        // P3: -1 means forced check triggers on day 4 (when >= 3)
+        // P2/P1: -4 means forced check triggers on day 9 (when >= 5)
+        p3Subjects.forEach(() => daysSinceP3.push(-1));
+        p2Subjects.forEach(() => daysSinceP2.push(-4));
+        p1Subjects.forEach(() => daysSinceP1.push(-4));
         this.schedule = this.schedule.map((day, dayIndex) => {
             const maxHours = day.totalHours;
             console.log(`\nDay ${dayIndex + 1}: ${day.date} (${maxHours}h available)`);
             if (maxHours <= 0) {
                 return { ...day, subjects: [] };
             }
-            const subjectsForDay = [];
+            // End of main allocation logic
+            let subjectsForDay = [];
             let hoursUsed = 0;
-            // Increment days since last appearance for all P3 and P2
+            // Increment days since last appearance for all P3, P2, and P1
             daysSinceP3 = daysSinceP3.map(d => d + 1);
             daysSinceP2 = daysSinceP2.map(d => d + 1);
+            daysSinceP1 = daysSinceP1.map(d => d + 1);
 
-            if (maxHours < p5Split.single) {
-                // Only 1 P5 subject, all time, max subjects from config
-                if (p5Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+            // Helper to add subject only if not already present
+            function addSubjectOnce(subjectsArr, subjectObj) {
+                if (!subjectsArr.some(s => s.name === subjectObj.name)) {
+                    subjectsArr.push(subjectObj);
+                    return true;
+                }
+                return false;
+            }
+
+            // --- STRICT HOUR-BASED ALLOCATION LOGIC ---
+            // Base hour config
+            const basep5Hours = this.config.baseHours[5] || 3;
+            const basep4Hours = this.config.baseHours[4] || 2;
+            const basep3Hours = this.config.baseHours[3] || 1.5;
+            const basep2Hours = this.config.baseHours[2] || 1;
+            const basep1Hours = this.config.baseHours[1] || 1;
+
+            if (maxHours >= 1 && maxHours <= 3) {
+                // 1-3 hrs: Assign 1 P5 subject
+                if (p5Subjects.length > 0) {
                     const subject = p5Subjects[p5Index % p5Subjects.length];
-                    subjectsForDay.push({ name: subject, priority: 5, hours: maxHours });
+                    addSubjectOnce(subjectsForDay, { name: subject, priority: 5, hours: maxHours });
                     p5Index++;
                 }
-            } else if (maxHours >= p5Split.doubleMin && maxHours <= p5Split.doubleMax) {
-                // 2 P5 subjects, split time equally, max subjects from config
-                if (p5Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+            } else if (maxHours >= 4 && maxHours <= 5) {
+                // 4-5 hrs: Assign 2 P5 subjects with equal hours distribution
+                if (p5Subjects.length > 0) {
+                    const hoursPerP5 = maxHours / 2;
                     const subject1 = p5Subjects[p5Index % p5Subjects.length];
-                    const subject2 = p5Subjects[(p5Index + 1) % p5Subjects.length];
-                    const split = maxHours / 2;
-                    subjectsForDay.push({ name: subject1, priority: 5, hours: split });
-                    if (p5Subjects.length > 1 && subjectsForDay.length < maxSubjects) {
-                        subjectsForDay.push({ name: subject2, priority: 5, hours: split });
+                    addSubjectOnce(subjectsForDay, { name: subject1, priority: 5, hours: hoursPerP5 });
+                    p5Index++;
+                    if (p5Subjects.length > 1) {
+                        const subject2 = p5Subjects[p5Index % p5Subjects.length];
+                        addSubjectOnce(subjectsForDay, { name: subject2, priority: 5, hours: hoursPerP5 });
+                        p5Index++;
+                    } else {
+                        // Only 1 P5 subject, give it all hours
+                        subjectsForDay[0].hours = maxHours;
                     }
-                    p5Index = (p5Index + 2) % p5Subjects.length;
                 }
-            } else if (maxHours > p5Split.doubleMax) {
-                // Allocate by priority as per Study Configuration, never exceeding available hours
-                // P5 first, then P4, then P3, then P2, up to maxSubjects from config
-                let priorities = [5, 4, 3, 2, 1];
-                for (let p = 0; p < priorities.length; p++) {
-                    let subjectList = subjectsByPriority[priorities[p]];
-                    for (let i = 0; i < subjectList.length; i++) {
-                        if (hoursUsed >= maxHours || subjectsForDay.length >= maxSubjects) break;
-                        let subject = subjectList[(priorities[p] === 5 ? p5Index : priorities[p] === 4 ? p4Index : priorities[p] === 3 ? p3Index : p2Index) % subjectList.length];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            let allocation = 0;
-                            if (priorities[p] === 5) allocation = Math.min(p5Hours, maxHours - hoursUsed);
-                            else if (priorities[p] === 4) allocation = Math.min(p4Hours, maxHours - hoursUsed);
-                            else if (priorities[p] === 3) allocation = Math.min(p3Hours, maxHours - hoursUsed);
-                            else if (priorities[p] === 2) allocation = Math.min(p2Hours, maxHours - hoursUsed);
-                            else allocation = Math.max(0, maxHours - hoursUsed);
-                            if (allocation > 0) {
-                                subjectsForDay.push({ name: subject, priority: priorities[p], hours: allocation });
-                                hoursUsed += allocation;
-                                if (priorities[p] === 5) p5Index++;
-                                else if (priorities[p] === 4) p4Index++;
-                                else if (priorities[p] === 3) p3Index++;
-                                else if (priorities[p] === 2) p2Index++;
-                            }
+            } else if (maxHours === 6) {
+                // 6 hrs: Assign 2 P5 subjects with base hours distribution (3+3)
+                if (p5Subjects.length > 0) {
+                    const subject1 = p5Subjects[p5Index % p5Subjects.length];
+                    addSubjectOnce(subjectsForDay, { name: subject1, priority: 5, hours: basep5Hours });
+                    p5Index++;
+                    if (p5Subjects.length > 1) {
+                        const subject2 = p5Subjects[p5Index % p5Subjects.length];
+                        addSubjectOnce(subjectsForDay, { name: subject2, priority: 5, hours: basep5Hours });
+                        p5Index++;
+                    } else {
+                        // Only 1 P5 subject, give it all hours
+                        subjectsForDay[0].hours = maxHours;
+                    }
+                }
+            } else if (maxHours >= 7 && maxHours <= 8) {
+                // 7-8 hrs: Assign 2 P5 (base) + 1 P4 (remaining)
+                let used = 0;
+                if (p5Subjects.length > 0) {
+                    const subject1 = p5Subjects[p5Index % p5Subjects.length];
+                    addSubjectOnce(subjectsForDay, { name: subject1, priority: 5, hours: basep5Hours });
+                    used += basep5Hours;
+                    p5Index++;
+                    if (p5Subjects.length > 1) {
+                        const subject2 = p5Subjects[p5Index % p5Subjects.length];
+                        addSubjectOnce(subjectsForDay, { name: subject2, priority: 5, hours: basep5Hours });
+                        used += basep5Hours;
+                        p5Index++;
+                    }
+                }
+                // Add P4 with remaining hours
+                if (p4Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+                    const remainingHours = maxHours - used;
+                    const subject = p4Subjects[p4Index % p4Subjects.length];
+                    addSubjectOnce(subjectsForDay, { name: subject, priority: 4, hours: remainingHours });
+                    p4Index++;
+                }
+            } else if (maxHours >= 9 && maxHours <= 11) {
+                // 9-11 hrs: Assign 2 P5 (base) + 1 P4 (base) + 1 P1/P2/P3 (with frequency enforcement)
+                let used = 0;
+
+                // Add 2 P5 subjects with base hours
+                if (p5Subjects.length > 0) {
+                    const subject1 = p5Subjects[p5Index % p5Subjects.length];
+                    addSubjectOnce(subjectsForDay, { name: subject1, priority: 5, hours: basep5Hours });
+                    used += basep5Hours;
+                    p5Index++;
+                    if (p5Subjects.length > 1) {
+                        const subject2 = p5Subjects[p5Index % p5Subjects.length];
+                        addSubjectOnce(subjectsForDay, { name: subject2, priority: 5, hours: basep5Hours });
+                        used += basep5Hours;
+                        p5Index++;
+                    }
+                }
+
+                // Add 1 P4 subject with base hours
+                if (p4Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+                    const subject = p4Subjects[p4Index % p4Subjects.length];
+                    addSubjectOnce(subjectsForDay, { name: subject, priority: 4, hours: basep4Hours });
+                    used += basep4Hours;
+                    p4Index++;
+                }
+
+                // Add 1 P3/P2/P1 with remaining hours (enforce frequency rules)
+                if (subjectsForDay.length < maxSubjects) {
+                    const remainingHours = maxHours - used;
+                    let added = false;
+
+                    // Find the MOST overdue subject across all priorities
+                    let mostOverdueInfo = null;
+                    let maxDaysSince = 0;
+
+                    // Check P3 (threshold: 3 days)
+                    for (let attempt = 0; attempt < p3Subjects.length; attempt++) {
+                        const i = (p3Index + attempt) % p3Subjects.length;
+                        if (daysSinceP3[i] >= 3 && daysSinceP3[i] > maxDaysSince) {
+                            maxDaysSince = daysSinceP3[i];
+                            mostOverdueInfo = { priority: 3, index: i, daysSince: daysSinceP3[i], subjects: p3Subjects, daysSinceArr: daysSinceP3 };
                         }
+                    }
+
+                    // Check P2 (threshold: 5 days)
+                    for (let attempt = 0; attempt < p2Subjects.length; attempt++) {
+                        const i = (p2Index + attempt) % p2Subjects.length;
+                        if (daysSinceP2[i] >= 5 && daysSinceP2[i] > maxDaysSince) {
+                            maxDaysSince = daysSinceP2[i];
+                            mostOverdueInfo = { priority: 2, index: i, daysSince: daysSinceP2[i], subjects: p2Subjects, daysSinceArr: daysSinceP2 };
+                        }
+                    }
+
+                    // Check P1 (threshold: 5 days)
+                    for (let attempt = 0; attempt < p1Subjects.length; attempt++) {
+                        const i = (p1Index + attempt) % p1Subjects.length;
+                        if (daysSinceP1[i] >= 5 && daysSinceP1[i] > maxDaysSince) {
+                            maxDaysSince = daysSinceP1[i];
+                            mostOverdueInfo = { priority: 1, index: i, daysSince: daysSinceP1[i], subjects: p1Subjects, daysSinceArr: daysSinceP1 };
+                        }
+                    }
+
+                    // Force the MOST overdue subject if any found
+                    if (mostOverdueInfo) {
+                        const { priority, index, daysSince, subjects, daysSinceArr } = mostOverdueInfo;
+                        const subject = subjects[index];
+                        console.log(`  Day ${dayIndex + 1} force: P${priority} subject "${subject}" is ${daysSince} days old, forcing (MOST OVERDUE)...`);
+                        addSubjectOnce(subjectsForDay, { name: subject, priority, hours: remainingHours });
+                        daysSinceArr[index] = 0;
+                        if (priority === 3) p3Index = (index + 1) % p3Subjects.length;
+                        else if (priority === 2) p2Index = (index + 1) % p2Subjects.length;
+                        else p1Index = (index + 1) % p1Subjects.length;
+                        added = true;
+                    }
+
+                    // If none overdue, rotate through P3, P2, P1 in round-robin fashion
+                    if (!added) {
+                        // Simple round-robin: try each priority once in rotation order
+                        const rotationPriority = p123RotationIndex % 3; // 0=P3, 1=P2, 2=P1
+                        console.log(`  Day ${dayIndex + 1} rotation: index=${p123RotationIndex}, priority=${rotationPriority}, trying P${[3,2,1][rotationPriority]}`);
+                        
+                        if (rotationPriority === 0 && p3Subjects.length > 0) {
+                            // Rotate P3
+                            const subject = p3Subjects[p3Index % p3Subjects.length];
+                            if (addSubjectOnce(subjectsForDay, { name: subject, priority: 3, hours: remainingHours })) {
+                                console.log(`    → Added P3: ${subject}`);
+                                daysSinceP3[p3Index % p3Subjects.length] = 0;
+                                p3Index++;
+                                added = true;
+                            }
+                        } else if (rotationPriority === 1 && p2Subjects.length > 0) {
+                            // Rotate P2
+                            const subject = p2Subjects[p2Index % p2Subjects.length];
+                            if (addSubjectOnce(subjectsForDay, { name: subject, priority: 2, hours: remainingHours })) {
+                                console.log(`    → Added P2: ${subject}`);
+                                daysSinceP2[p2Index % p2Subjects.length] = 0;
+                                p2Index++;
+                                added = true;
+                            }
+                        } else if (rotationPriority === 2 && p1Subjects.length > 0) {
+                            // Rotate P1
+                            const subject = p1Subjects[p1Index % p1Subjects.length];
+                            if (addSubjectOnce(subjectsForDay, { name: subject, priority: 1, hours: remainingHours })) {
+                                console.log(`    → Added P1: ${subject}`);
+                                daysSinceP1[p1Index % p1Subjects.length] = 0;
+                                p1Index++;
+                                added = true;
+                            }
+                        } else {
+                            console.log(`    → Rotation priority ${rotationPriority} has no subjects or condition failed`);
+                        }
+                        
+                        // Always advance rotation index at end of day, whether we added or not
+                        p123RotationIndex++;
                     }
                 }
             }
+
+
+
+            // Ensure no duplicate subjects and maxSubjectsPerDay enforced
+            subjectsForDay = subjectsForDay.slice(0, maxSubjects);
+
             // Ensure total hours do not exceed maxHours
             let total = subjectsForDay.reduce((sum, s) => sum + s.hours, 0);
             if (total > maxHours) {
                 // Scale down proportionally
                 subjectsForDay.forEach(s => s.hours = (s.hours / total) * maxHours);
             }
-            return { ...day, subjects: subjectsForDay };
+            // Enforce minHoursToInclude for all except P4/P5 (always included)
+            let minHoursFilter = this.config.minHoursToInclude || 0;
+            const filteredSubjects = subjectsForDay.filter(s => {
+                if (s.priority === 5 || s.priority === 4) return true;
+                return s.hours >= minHoursFilter;
+            });
+            // Log for validation
+            console.log(`Subjects for day ${dayIndex + 1}:`, filteredSubjects.map(s => `${s.name} (P${s.priority}, ${s.hours.toFixed(2)}h)`));
+            return { ...day, subjects: filteredSubjects };
         });
     }
-
     distributeSubjects(totalHours) {
         // This method is now superseded by createRotatingSchedule()
         // Kept for backward compatibility
