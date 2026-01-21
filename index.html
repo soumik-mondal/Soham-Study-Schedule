@@ -57,6 +57,23 @@
                                 <input type="number" id="minHoursToInclude" min="0.5" max="3" step="0.5" value="1.0">
                                 <span class="config-help">Subjects with less hours will be excluded</span>
                             </div>
+                            <div class="config-item">
+                                <label for="maxSubjectsPerDay">Max Subjects Per Day:</label>
+                                <input type="number" id="maxSubjectsPerDay" min="1" max="8" step="1" value="4">
+                                <span class="config-help">Maximum number of subjects scheduled per day</span>
+                            </div>
+                            <div class="config-item">
+                                <label>P5 Split Thresholds:</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span>Single:</span>
+                                    <input type="number" id="p5SingleThreshold" min="1" max="6" step="0.5" value="3" style="width:60px;">
+                                    <span>Double Min:</span>
+                                    <input type="number" id="p5DoubleMinThreshold" min="1" max="10" step="0.5" value="4" style="width:60px;">
+                                    <span>Double Max:</span>
+                                    <input type="number" id="p5DoubleMaxThreshold" min="1" max="12" step="0.5" value="6" style="width:60px;">
+                                </div>
+                                <span class="config-help">Configure hour ranges for 1 or 2 P5 subjects</span>
+                            </div>
                             
                             <div class="config-item">
                                 <label for="roundTo">Round Hours to Nearest:</label>
@@ -67,14 +84,6 @@
                                 </select>
                             </div>
 
-                            <div class="config-item">
-                                <label for="distributionMethod">Distribution Method:</label>
-                                <select id="distributionMethod">
-                                    <option value="priority">Priority Weighted</option>
-                                    <option value="equal">Equal Distribution</option>
-                                    <option value="highFirst">High Priority First</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -88,13 +97,21 @@
                 <div class="error-message" id="configError" style="display: none;"></div>
             </section>
             
-            <!-- Subject Priority Section -->
-            <section class="priority-section">
-                <h2>🎯 Set Subject Priorities (1-5, 5=Highest; 0=Exclude)</h2>
-                <div class="priority-grid" id="priorityContainer">
-                    <!-- Priority inputs will be generated here -->
-                </div>
-            </section>
+            <!-- Only keep new priorities section -->
+                <section class="priorities-section">
+                    <h2>📋 Set Subject Priorities (1-5, 5=Highest; 0=Exclude)</h2>
+                                        <div id="subject-config">
+                                            <div class="subject-config-top-row">
+                                                <div class="input-group">
+                                                    <label for="numSubjects">Number of Subjects:</label>
+                                                    <input type="number" id="numSubjects" min="1" max="20" value="6" class="date-input">
+                                                </div>
+                                                <button id="generateSubjects" class="generate-btn">Generate Subjects</button>
+                                            </div>
+                                            <div id="subjectsContainer"></div>
+                                            <button id="saveDefaults" class="generate-btn">Save Defaults</button>
+                                        </div>
+                </section>
 
             <!-- Hours Input Section -->
             <section class="hours-section">

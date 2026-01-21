@@ -1,18 +1,101 @@
+// --- Configurable Subject Priorities ---
+const subjectsContainer = document.getElementById('subjectsContainer');
+const numSubjectsInput = document.getElementById('numSubjects');
+const generateSubjectsBtn = document.getElementById('generateSubjects');
+const saveDefaultsBtn = document.getElementById('saveDefaults');
+
+function renderSubjectInputs(subjects = []) {
+    subjectsContainer.innerHTML = '';
+    const numSubjects = parseInt(numSubjectsInput.value, 10);
+    for (let i = 0; i < numSubjects; i++) {
+        const subjectName = subjects[i]?.name || '';
+        const priority = subjects[i]?.priority ?? 5;
+        const div = document.createElement('div');
+        div.className = 'subject-col';
+        div.innerHTML = `
+            <input type="text" placeholder="Subject Name" value="${subjectName}" class="subject-name" style="margin-bottom:8px;font-weight:600;">
+            <select class="subject-priority">
+                <option value="5">5 (Highest)</option>
+                <option value="4">4</option>
+                <option value="3">3</option>
+                <option value="2">2</option>
+                <option value="1">1</option>
+                <option value="0">0 (Exclude)</option>
+            </select>
+        `;
+        div.querySelector('.subject-priority').value = priority;
+        subjectsContainer.appendChild(div);
+    }
+}
+
+generateSubjectsBtn.onclick = () => {
+    renderSubjectInputs();
+};
+
+saveDefaultsBtn.onclick = () => {
+    const subjects = [];
+    subjectsContainer.querySelectorAll('div').forEach(div => {
+        const name = div.querySelector('.subject-name').value.trim();
+        const priority = parseInt(div.querySelector('.subject-priority').value, 10);
+        if (name) subjects.push({ name, priority });
+    });
+        localStorage.setItem('defaultSubjects', JSON.stringify(subjects));
+        // Custom modal for confirmation
+        let modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.background = 'rgba(0,0,0,0.3)';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = '9999';
+        modal.innerHTML = `
+            <div style="background:#fff;padding:32px 24px;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,0.15);text-align:center;min-width:260px;">
+                <div style="font-size:1.2em;font-weight:600;margin-bottom:16px;">Default Subjects Saved</div>
+                <button id="closeDefaultModal" style="padding:8px 24px;font-size:1em;border-radius:6px;border:none;background:#764ba2;color:#fff;cursor:pointer;">OK</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('closeDefaultModal').onclick = () => {
+            document.body.removeChild(modal);
+        };
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('defaultSubjects');
+    if (saved) {
+        const subjects = JSON.parse(saved);
+        numSubjectsInput.value = subjects.length;
+        renderSubjectInputs(subjects);
+    } else {
+        renderSubjectInputs();
+    }
+});
 // Enhanced Study Schedule App with Date Range, Priority, and Configuration
 class StudySchedule {
     constructor() {
-        // Define subjects first
-        this.subjects = [
-            'Math', 'Physics', 'Chemistry', 'Biology', 
-            'AI & Robotics', 'History', 'Geography', 
-            'English Lit', 'English Lang', 'Bengali'
-        ];
-        
+        // Load user-defined subjects from localStorage, fallback to default
+        const savedSubjects = localStorage.getItem('defaultSubjects');
+        if (savedSubjects) {
+            this.subjects = JSON.parse(savedSubjects).map(s => s.name);
+            this.subjectPriorities = {};
+            JSON.parse(savedSubjects).forEach(s => {
+                this.subjectPriorities[s.name] = s.priority;
+            });
+        } else {
+            this.subjects = [
+                'Math', 'Physics', 'Chemistry', 'Biology', 
+                'AI & Robotics', 'History', 'Geography', 
+                'English Lit', 'English Lang', 'Bengali'
+            ];
+            this.subjectPriorities = {};
+        }
         // Initialize other properties
         this.schedule = [];
-        this.subjectPriorities = {};
         this.config = {};
-        
         this.init();
     }
 
@@ -125,8 +208,13 @@ class StudySchedule {
             },
             minHoursToInclude: 1.0,
             roundTo: 0.5,
-            distributionMethod: 'priority',
-            includedPriorities: [1, 2, 3, 4, 5]
+            includedPriorities: [1, 2, 3, 4, 5],
+            maxSubjectsPerDay: 4, // NEW: configurable max subjects per day
+            p5SplitThresholds: {
+                single: 3,      // <3h = 1 P5 subject
+                doubleMin: 4,   // >=4h
+                doubleMax: 6    // <=6h
+            }
         };
     }
 
@@ -157,34 +245,31 @@ class StudySchedule {
     renderPriorityInputs() {
         const container = document.getElementById('priorityContainer');
         if (!container) return;
-
-        container.innerHTML = this.subjects.map(subject => {
-            // Get priority - if it's not set, use default
+        container.innerHTML = '';
+        this.subjects.forEach(subject => {
+            const subjectId = subject.replace(/[&\s]+/g, '-');
             let priority = this.subjectPriorities[subject];
             if (priority === undefined) {
                 priority = this.getDefaultPriorities()[subject] || 3;
             }
-            
-            const subjectId = subject.replace(/[&\s]+/g, '-');
-            
-            return `
-                <div class="priority-item">
-                    <label for="priority-${subjectId}">
-                        ${subject} 
-                        <span class="priority-badge priority-${priority}">${priority === 0 ? 'Excluded' : 'P' + priority}</span>
-                    </label>
-                    <select id="priority-${subjectId}" class="priority-input" data-subject="${subject}">
-                        <option value="0" ${priority === 0 ? 'selected' : ''}>Exclude (0)</option>
-                        <option value="1" ${priority === 1 ? 'selected' : ''}>Priority 1</option>
-                        <option value="2" ${priority === 2 ? 'selected' : ''}>Priority 2</option>
-                        <option value="3" ${priority === 3 ? 'selected' : ''}>Priority 3</option>
-                        <option value="4" ${priority === 4 ? 'selected' : ''}>Priority 4</option>
-                        <option value="5" ${priority === 5 ? 'selected' : ''}>Priority 5</option>
-                    </select>
-                </div>
+            const div = document.createElement('div');
+            div.className = 'priority-item';
+            div.innerHTML = `
+                <label for="priority-${subjectId}">
+                    ${subject}
+                    <span class="priority-badge priority-${priority}">${priority === 0 ? 'Excluded' : 'P' + priority}</span>
+                </label>
+                <select id="priority-${subjectId}" class="priority-input" data-subject="${subject}">
+                    <option value="0" ${priority === 0 ? 'selected' : ''}>Exclude (0)</option>
+                    <option value="1" ${priority === 1 ? 'selected' : ''}>Priority 1</option>
+                    <option value="2" ${priority === 2 ? 'selected' : ''}>Priority 2</option>
+                    <option value="3" ${priority === 3 ? 'selected' : ''}>Priority 3</option>
+                    <option value="4" ${priority === 4 ? 'selected' : ''}>Priority 4</option>
+                    <option value="5" ${priority === 5 ? 'selected' : ''}>Priority 5</option>
+                </select>
             `;
-        }).join('');
-        
+            container.appendChild(div);
+        });
         this.attachPriorityEventListeners();
     }
 
@@ -232,10 +317,18 @@ class StudySchedule {
         const minHoursInput = document.getElementById('minHoursToInclude');
         const roundToSelect = document.getElementById('roundTo');
         const distributionMethodSelect = document.getElementById('distributionMethod');
+        const maxSubjectsInput = document.getElementById('maxSubjectsPerDay');
+        const p5SingleInput = document.getElementById('p5SingleThreshold');
+        const p5DoubleMinInput = document.getElementById('p5DoubleMinThreshold');
+        const p5DoubleMaxInput = document.getElementById('p5DoubleMaxThreshold');
         
         if (minHoursInput) minHoursInput.value = this.config.minHoursToInclude;
         if (roundToSelect) roundToSelect.value = this.config.roundTo.toString();
         if (distributionMethodSelect) distributionMethodSelect.value = this.config.distributionMethod;
+        if (maxSubjectsInput) maxSubjectsInput.value = this.config.maxSubjectsPerDay;
+        if (p5SingleInput) p5SingleInput.value = this.config.p5SplitThresholds.single;
+        if (p5DoubleMinInput) p5DoubleMinInput.value = this.config.p5SplitThresholds.doubleMin;
+        if (p5DoubleMaxInput) p5DoubleMaxInput.value = this.config.p5SplitThresholds.doubleMax;
     }
 
     renderConfigSummary() {
@@ -591,6 +684,28 @@ class StudySchedule {
     }
 
     attachConfigEventListeners() {
+                // P5 split threshold changes
+                const p5SingleInput = document.getElementById('p5SingleThreshold');
+                if (p5SingleInput) {
+                    p5SingleInput.addEventListener('change', (e) => {
+                        this.config.p5SplitThresholds.single = parseFloat(e.target.value) || 3;
+                        this.validateAndSaveConfig();
+                    });
+                }
+                const p5DoubleMinInput = document.getElementById('p5DoubleMinThreshold');
+                if (p5DoubleMinInput) {
+                    p5DoubleMinInput.addEventListener('change', (e) => {
+                        this.config.p5SplitThresholds.doubleMin = parseFloat(e.target.value) || 4;
+                        this.validateAndSaveConfig();
+                    });
+                }
+                const p5DoubleMaxInput = document.getElementById('p5DoubleMaxThreshold');
+                if (p5DoubleMaxInput) {
+                    p5DoubleMaxInput.addEventListener('change', (e) => {
+                        this.config.p5SplitThresholds.doubleMax = parseFloat(e.target.value) || 6;
+                        this.validateAndSaveConfig();
+                    });
+                }
         // Priority base hours changes
         for (let priority = 0; priority <= 5; priority++) {
             const input = document.getElementById(`baseHours-${priority}`);
@@ -611,6 +726,14 @@ class StudySchedule {
             });
         }
 
+        const maxSubjectsInput = document.getElementById('maxSubjectsPerDay');
+        if (maxSubjectsInput) {
+            maxSubjectsInput.addEventListener('change', (e) => {
+                this.config.maxSubjectsPerDay = parseInt(e.target.value, 10) || 4;
+                this.validateAndSaveConfig();
+            });
+        }
+
         const roundToSelect = document.getElementById('roundTo');
         if (roundToSelect) {
             roundToSelect.addEventListener('change', (e) => {
@@ -620,12 +743,7 @@ class StudySchedule {
         }
 
         const distributionMethodSelect = document.getElementById('distributionMethod');
-        if (distributionMethodSelect) {
-            distributionMethodSelect.addEventListener('change', (e) => {
-                this.config.distributionMethod = e.target.value;
-                this.validateAndSaveConfig();
-            });
-        }
+        // distributionMethodSelect event listener removed
     }
 
     validateAndSaveConfig() {
@@ -676,12 +794,7 @@ class StudySchedule {
             console.log('Reset invalid roundTo value to 0.5');
         }
 
-        // Validation 5: Check if distribution method is valid
-        const validMethods = ['priority', 'equal', 'highFirst'];
-        if (!validMethods.includes(this.config.distributionMethod)) {
-            this.config.distributionMethod = 'priority';
-            console.log('Reset invalid distributionMethod to priority');
-        }
+        // Distribution method validation removed
 
         // All validations passed
         this.saveData();
@@ -814,186 +927,104 @@ class StudySchedule {
     }
 
     createRotatingSchedule() {
+        // Always reload latest user-defined subjects and priorities from localStorage
+        const savedSubjects = localStorage.getItem('defaultSubjects');
+        if (savedSubjects) {
+            this.subjects = JSON.parse(savedSubjects).map(s => s.name);
+            this.subjectPriorities = {};
+            JSON.parse(savedSubjects).forEach(s => {
+                this.subjectPriorities[s.name] = s.priority;
+            });
+        }
         console.log('\n--- CREATING ROTATING SCHEDULE ---');
-        
         const subjectsByPriority = { 5: [], 4: [], 3: [], 2: [], 1: [] };
         Object.entries(this.subjectPriorities).forEach(([subject, priority]) => {
             if (priority > 0 && priority <= 5) {
                 subjectsByPriority[priority].push(subject);
             }
         });
-        
         const p5Subjects = subjectsByPriority[5];
         const p4Subjects = subjectsByPriority[4];
         const p3Subjects = subjectsByPriority[3];
         const p2Subjects = subjectsByPriority[2];
-        
-        const p5Hours = 3;    // Increased from 2.5 to 3
-        const p4Hours = 2.5;  // Increased from 2 to 2.5
+        // Use config for P5 split thresholds and max subjects
+        const p5Split = this.config.p5SplitThresholds || { single: 3, doubleMin: 4, doubleMax: 6 };
+        const maxSubjects = this.config.maxSubjectsPerDay || 4;
+        const p5Hours = 3;
+        const p4Hours = 2.5;
         const p3Hours = 1.5;
         const p2Hours = 1.0;
-        
         let p5Index = 0, p4Index = 0, p3Index = 0, p2Index = 0;
         let daysSinceP3 = [];
         let daysSinceP2 = [];
-        
         // Initialize to high values so P3 has priority on day 1
-        p3Subjects.forEach(() => daysSinceP3.push(3));   // Start at 3 so >= 3 condition is met on day 1
-        p2Subjects.forEach(() => daysSinceP2.push(5));   // Start at 5 so >= 5 condition is met on day 1
-        
+        p3Subjects.forEach(() => daysSinceP3.push(3));
+        p2Subjects.forEach(() => daysSinceP2.push(5));
         this.schedule = this.schedule.map((day, dayIndex) => {
             const maxHours = day.totalHours;
             console.log(`\nDay ${dayIndex + 1}: ${day.date} (${maxHours}h available)`);
-            
             if (maxHours <= 0) {
                 return { ...day, subjects: [] };
             }
-            
             const subjectsForDay = [];
             let hoursUsed = 0;
-            const MAX_SUBJECTS = 4;
-            
             // Increment days since last appearance for all P3 and P2
             daysSinceP3 = daysSinceP3.map(d => d + 1);
             daysSinceP2 = daysSinceP2.map(d => d + 1);
-            
-            // Determine hours based on daily availability: 9h days = 2.5/2/2, 11h+ days = 3/2.5/2.5
-            const dailyP5Hours = maxHours >= 11 ? 3 : 2.5;      // 3h for 11h+ days, 2.5h for 9h days
-            const dailyP4Hours = maxHours >= 11 ? 2.5 : 2;      // 2.5h for 11h+ days, 2h for 9h days
-            
-            // Phase 1: Add 2 P5 subjects
-            const p5StartCount = 2;
-            for (let i = 0; i < p5StartCount && p5Subjects.length > 0; i++) {
-                if (hoursUsed >= maxHours || subjectsForDay.length >= MAX_SUBJECTS) break;
-                
-                let subject = null;
-                for (let j = 0; j < p5Subjects.length; j++) {
-                    const candidate = p5Subjects[(p5Index + j) % p5Subjects.length];
-                    if (!subjectsForDay.some(s => s.name === candidate)) {
-                        subject = candidate;
-                        p5Index = (p5Index + j + 1) % p5Subjects.length;
-                        break;
+
+            if (maxHours < p5Split.single) {
+                // Only 1 P5 subject, all time, max subjects from config
+                if (p5Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+                    const subject = p5Subjects[p5Index % p5Subjects.length];
+                    subjectsForDay.push({ name: subject, priority: 5, hours: maxHours });
+                    p5Index++;
+                }
+            } else if (maxHours >= p5Split.doubleMin && maxHours <= p5Split.doubleMax) {
+                // 2 P5 subjects, split time equally, max subjects from config
+                if (p5Subjects.length > 0 && subjectsForDay.length < maxSubjects) {
+                    const subject1 = p5Subjects[p5Index % p5Subjects.length];
+                    const subject2 = p5Subjects[(p5Index + 1) % p5Subjects.length];
+                    const split = maxHours / 2;
+                    subjectsForDay.push({ name: subject1, priority: 5, hours: split });
+                    if (p5Subjects.length > 1 && subjectsForDay.length < maxSubjects) {
+                        subjectsForDay.push({ name: subject2, priority: 5, hours: split });
                     }
+                    p5Index = (p5Index + 2) % p5Subjects.length;
                 }
-                
-                if (!subject) break;
-                
-                // Allocate 3h to each P5
-                const hours = p5Hours;
-                subjectsForDay.push({ name: subject, priority: 5, hours });
-                hoursUsed += hours;
-                console.log(`  P5: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-            }
-            
-            // Phase 2: Add 1 P4 subject
-            if (hoursUsed < maxHours && p4Subjects.length > 0 && subjectsForDay.length < MAX_SUBJECTS) {
-                let subject = null;
-                for (let j = 0; j < p4Subjects.length; j++) {
-                    const candidate = p4Subjects[(p4Index + j) % p4Subjects.length];
-                    if (!subjectsForDay.some(s => s.name === candidate)) {
-                        subject = candidate;
-                        p4Index = (p4Index + j + 1) % p4Subjects.length;
-                        break;
-                    }
-                }
-                
-                if (subject) {
-                    // Allocate P4 hours based on daily total
-                    const hours = dailyP4Hours;
-                    subjectsForDay.push({ name: subject, priority: 4, hours });
-                    hoursUsed += hours;
-                    console.log(`  P4: ${subject} (${hours}h, total: ${hoursUsed}h)`);
-                }
-            }
-            
-            // Phase 3: Add P3 or P2 (ALWAYS, to guarantee at least one per day)
-            if (hoursUsed < maxHours && subjectsForDay.length < MAX_SUBJECTS) {
-                let selectedSubject = null;
-                let selectedPriority = 0;
-                let selectedIdx = -1;
-                
-                // First priority: Check P3 subjects (every 3 days)
-                if (p3Subjects.length > 0) {
-                    for (let idx = 0; idx < p3Subjects.length; idx++) {
-                        if (daysSinceP3[idx] >= 3) {
-                            const subject = p3Subjects[idx];
-                            if (!subjectsForDay.some(s => s.name === subject)) {
-                                selectedSubject = subject;
-                                selectedPriority = 3;
-                                selectedIdx = idx;
-                                break;
+            } else if (maxHours > p5Split.doubleMax) {
+                // Allocate by priority as per Study Configuration, never exceeding available hours
+                // P5 first, then P4, then P3, then P2, up to maxSubjects from config
+                let priorities = [5, 4, 3, 2, 1];
+                for (let p = 0; p < priorities.length; p++) {
+                    let subjectList = subjectsByPriority[priorities[p]];
+                    for (let i = 0; i < subjectList.length; i++) {
+                        if (hoursUsed >= maxHours || subjectsForDay.length >= maxSubjects) break;
+                        let subject = subjectList[(priorities[p] === 5 ? p5Index : priorities[p] === 4 ? p4Index : priorities[p] === 3 ? p3Index : p2Index) % subjectList.length];
+                        if (!subjectsForDay.some(s => s.name === subject)) {
+                            let allocation = 0;
+                            if (priorities[p] === 5) allocation = Math.min(p5Hours, maxHours - hoursUsed);
+                            else if (priorities[p] === 4) allocation = Math.min(p4Hours, maxHours - hoursUsed);
+                            else if (priorities[p] === 3) allocation = Math.min(p3Hours, maxHours - hoursUsed);
+                            else if (priorities[p] === 2) allocation = Math.min(p2Hours, maxHours - hoursUsed);
+                            else allocation = Math.max(0, maxHours - hoursUsed);
+                            if (allocation > 0) {
+                                subjectsForDay.push({ name: subject, priority: priorities[p], hours: allocation });
+                                hoursUsed += allocation;
+                                if (priorities[p] === 5) p5Index++;
+                                else if (priorities[p] === 4) p4Index++;
+                                else if (priorities[p] === 3) p3Index++;
+                                else if (priorities[p] === 2) p2Index++;
                             }
                         }
                     }
                 }
-                
-                // Second priority: Force rotation through P3 subjects if none due
-                if (!selectedSubject && p3Subjects.length > 0) {
-                    let attempts = 0;
-                    while (attempts < p3Subjects.length) {
-                        const idx = p3Index % p3Subjects.length;
-                        const subject = p3Subjects[idx];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            selectedSubject = subject;
-                            selectedPriority = 3;
-                            selectedIdx = idx;
-                            p3Index++;
-                            break;
-                        }
-                        p3Index++;
-                        attempts++;
-                    }
-                }
-                
-                // Third priority: Check P2 subjects (every 5 days) if no P3 available
-                if (!selectedSubject && p2Subjects.length > 0) {
-                    for (let idx = 0; idx < p2Subjects.length; idx++) {
-                        if (daysSinceP2[idx] >= 5) {
-                            const subject = p2Subjects[idx];
-                            if (!subjectsForDay.some(s => s.name === subject)) {
-                                selectedSubject = subject;
-                                selectedPriority = 2;
-                                selectedIdx = idx;
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // Fourth priority: Force rotation through P2 subjects if nothing else selected
-                if (!selectedSubject && p2Subjects.length > 0) {
-                    let attempts = 0;
-                    while (attempts < p2Subjects.length) {
-                        const idx = p2Index % p2Subjects.length;
-                        const subject = p2Subjects[idx];
-                        if (!subjectsForDay.some(s => s.name === subject)) {
-                            selectedSubject = subject;
-                            selectedPriority = 2;
-                            selectedIdx = idx;
-                            p2Index++;
-                            break;
-                        }
-                        p2Index++;
-                        attempts++;
-                    }
-                }
-                
-                // Update tracking arrays
-                if (selectedSubject) {
-                    if (selectedPriority === 3 && selectedIdx >= 0) {
-                        daysSinceP3[selectedIdx] = 0;
-                    } else if (selectedPriority === 2 && selectedIdx >= 0) {
-                        daysSinceP2[selectedIdx] = 0;
-                    }
-                    
-                    const remaining = maxHours - hoursUsed;
-                    subjectsForDay.push({ name: selectedSubject, priority: selectedPriority, hours: remaining });
-                    hoursUsed = maxHours;
-                    console.log(`  P${selectedPriority}: ${selectedSubject} (${remaining}h, total: ${hoursUsed}h)`);
-                }
             }
-            
-            console.log(`✓ Day ${dayIndex + 1}: ${hoursUsed}h used, ${subjectsForDay.length} subjects`);
+            // Ensure total hours do not exceed maxHours
+            let total = subjectsForDay.reduce((sum, s) => sum + s.hours, 0);
+            if (total > maxHours) {
+                // Scale down proportionally
+                subjectsForDay.forEach(s => s.hours = (s.hours / total) * maxHours);
+            }
             return { ...day, subjects: subjectsForDay };
         });
     }
@@ -1095,58 +1126,19 @@ class StudySchedule {
 
         // Step 2: Distribute remaining hours based on distribution method
         if (remainingHours > 0.01) {
-            console.log(`\nStep 2: Distributing remaining ${remainingHours.toFixed(2)} hours using method: ${this.config.distributionMethod}`);
-            
-            if (this.config.distributionMethod === 'priority') {
-                // Priority Weighted Distribution
-                const totalPriority = filteredSubjects.reduce((sum, s) => sum + s.priority, 0);
-                console.log(`  Total priority sum: ${totalPriority}`);
-                
-                filteredSubjects.forEach(subject => {
-                    if (remainingHours <= 0.01) return;
-                    const priorityWeight = subject.priority / totalPriority;
-                    let allocatedHours = priorityWeight * remainingHours;
-                    allocatedHours = this.roundTo(allocatedHours, this.config.roundTo);
-                    allocatedHours = Math.min(allocatedHours, remainingHours);
-                    
-                    if (allocatedHours > 0) {
-                        subject.hours += allocatedHours;
-                        remainingHours -= allocatedHours;
-                        console.log(`  ${subject.name}: +${allocatedHours}, new total=${subject.hours}, remaining=${remainingHours.toFixed(2)}`);
-                    }
-                });
-            } else if (this.config.distributionMethod === 'equal') {
-                // Equal Distribution
-                const subjectsNeedingHours = filteredSubjects.filter(s => s.hours >= 0);
-                const hoursPerSubject = remainingHours / subjectsNeedingHours.length;
-                console.log(`  Hours per subject: ${hoursPerSubject.toFixed(2)}`);
-                
-                subjectsNeedingHours.forEach(subject => {
-                    let allocatedHours = hoursPerSubject;
-                    allocatedHours = this.roundTo(allocatedHours, this.config.roundTo);
-                    
-                    if (allocatedHours > 0) {
-                        subject.hours += allocatedHours;
-                        console.log(`  ${subject.name}: +${allocatedHours}, new total=${subject.hours}`);
-                    }
-                });
-                remainingHours = 0;
-            } else if (this.config.distributionMethod === 'highFirst') {
-                // High Priority First - allocate to highest priority subjects first
-                console.log(`  Allocating to highest priority first`);
-                
-                for (let i = 0; i < sortedByPriority.length && remainingHours > 0.01; i++) {
-                    const subject = sortedByPriority[i];
-                    const allocationUnit = this.config.roundTo;
-                    const allocatedHours = Math.min(allocationUnit, remainingHours);
-                    
-                    if (allocatedHours > 0) {
-                        subject.hours += allocatedHours;
-                        remainingHours -= allocatedHours;
-                        console.log(`  ${subject.name}: +${allocatedHours}, new total=${subject.hours}, remaining=${remainingHours.toFixed(2)}`);
-                    }
+            // Only priority-based distribution remains
+            const totalPriority = filteredSubjects.reduce((sum, s) => sum + s.priority, 0);
+            filteredSubjects.forEach(subject => {
+                if (remainingHours <= 0.01) return;
+                const priorityWeight = subject.priority / totalPriority;
+                let allocatedHours = priorityWeight * remainingHours;
+                allocatedHours = this.roundTo(allocatedHours, this.config.roundTo);
+                allocatedHours = Math.min(allocatedHours, remainingHours);
+                if (allocatedHours > 0) {
+                    subject.hours += allocatedHours;
+                    remainingHours -= allocatedHours;
                 }
-            }
+            });
         }
 
         // Step 3: Finalize distribution
